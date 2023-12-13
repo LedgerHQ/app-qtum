@@ -36,8 +36,6 @@ APPVERSION_N = 0
 APPVERSION_P = 0
 APPVERSION   = "$(APPVERSION_M).$(APPVERSION_N).$(APPVERSION_P)"
 
-APP_STACK_SIZE = 3072
-
 # Setting to allow building variant applications
 VARIANT_PARAM = COIN
 VARIANT_VALUES = qtum_testnet qtum
