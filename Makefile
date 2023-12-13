@@ -31,12 +31,10 @@ PATH_APP_LOAD_PARAMS = ""
 APP_LOAD_PARAMS += --path_slip21 "LEDGER-Wallet policy"
 
 # Application version
-APPVERSION_M = 2
-APPVERSION_N = 1
-APPVERSION_P = 6
+APPVERSION_M = 3
+APPVERSION_N = 0
+APPVERSION_P = 0
 APPVERSION   = "$(APPVERSION_M).$(APPVERSION_N).$(APPVERSION_P)"
-
-APP_STACK_SIZE = 3072
 
 # Setting to allow building variant applications
 VARIANT_PARAM = COIN
