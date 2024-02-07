@@ -2,7 +2,7 @@
 
 #include "get_merkle_preimage.h"
 
-#include "../../boilerplate/sw.h"
+#include "../../kernel/sw.h"
 #include "../../common/buffer.h"
 #include "../../crypto.h"
 #include "../client_commands.h"
@@ -17,8 +17,6 @@ int call_get_merkle_preimage(dispatcher_context_t *dispatcher_context,
                              const uint8_t hash[static 32],
                              uint8_t *out_ptr,
                              size_t out_ptr_len) {
-    // LOG_PROCESSOR(__FILE__, __LINE__, __func__);
-
     PRINT_STACK_POINTER();
 
     uint8_t cmd = CCMD_GET_PREIMAGE;

@@ -17,9 +17,9 @@
 
 #include <stdint.h>
 
-#include "boilerplate/io.h"
-#include "boilerplate/dispatcher.h"
-#include "boilerplate/sw.h"
+#include "kernel/io.h"
+#include "kernel/dispatcher.h"
+#include "kernel/sw.h"
 #include "../common/bip32.h"
 #include "../commands.h"
 #include "../constants.h"
@@ -33,10 +33,10 @@ static bool is_path_safe_for_pubkey_export(const uint32_t bip32_path[],
                                            size_t bip32_path_len,
                                            const uint32_t coin_types[],
                                            size_t coin_types_length) {
-    // Exception for Electrum: it historically used "m/4541509h/1112098098h"
+    // Exception for Qtum Electrum: it historically used "m/44h/88h/4541509h/1112098098h"
     // to derive encryption keys, so we whitelist it.
-    if (bip32_path_len == 2 && bip32_path[0] == (4541509 ^ H) &&
-        bip32_path[1] == (1112098098 ^ H)) {
+    if (bip32_path_len == 4 && bip32_path[0] == (44 ^ H) && bip32_path[1] == (88 ^ H) &&
+        bip32_path[2] == (4541509 ^ H) && bip32_path[3] == (1112098098 ^ H)) {
         return true;
     } else if (bip32_path_len == 2 && bip32_path[0] == (0 ^ H) && bip32_path[1] == (45342 ^ H)) {
         // Exception for "m/0h/45342h"
@@ -63,8 +63,12 @@ static bool is_path_safe_for_pubkey_export(const uint32_t bip32_path[],
             break;
         case 45:
             // BIP-45 prescribes simply length 1, but we instead support existing deployed
-            // use cases with path "m/45'/coin_type'/account'
-            hardened_der_len = 3;
+            // use cases with path "m/45'/coin_type'/account' or "m/45'/coin_type'/account
+            if (bip32_path[2] < 0x80000000) {
+                hardened_der_len = 2;
+            } else {
+                hardened_der_len = 3;
+            }
             break;
         case 48:
             hardened_der_len = 4;

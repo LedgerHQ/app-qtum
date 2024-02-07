@@ -27,9 +27,9 @@
 #include "io.h"
 #include "sw.h"
 #include "ui/menu.h"
-#include "boilerplate/apdu_parser.h"
-#include "boilerplate/constants.h"
-#include "boilerplate/dispatcher.h"
+#include "kernel/apdu_parser.h"
+#include "kernel/constants.h"
+#include "kernel/dispatcher.h"
 
 #include "debug-helpers/debug.h"
 
@@ -66,6 +66,8 @@ ux_state_t G_ux;
 bolos_ux_params_t G_ux_params;
 
 dispatcher_context_t G_dispatcher_context;
+
+const internalStorage_t N_storage_real;
 
 // clang-format off
 const command_descriptor_t COMMAND_DESCRIPTORS[] = {
@@ -110,7 +112,7 @@ const command_descriptor_t COMMAND_DESCRIPTORS[] = {
 void app_main() {
     for (;;) {
         // Length of APDU command received in G_io_apdu_buffer
-        int input_len = 0;
+        size_t input_len = 0;
         // Structured APDU command
         command_t cmd;
 
@@ -120,11 +122,6 @@ void app_main() {
         // Receive command bytes in G_io_apdu_buffer
 
         input_len = io_exchange(CHANNEL_APDU | IO_ASYNCH_REPLY, 0);
-
-        if (input_len < 0) {
-            PRINTF("=> io_exchange error\n");
-            return;
-        }
 
         // Reset structured APDU command
         memset(&cmd, 0, sizeof(cmd));
@@ -236,6 +233,17 @@ void coin_main() {
                 G_io_app.plane_mode = os_setting_get(OS_SETTING_PLANEMODE, NULL, 0);
 #endif  // HAVE_BLE
 
+                if (!N_storage.initialized) {
+                    internalStorage_t storage;
+#ifdef HAVE_ALLOW_DATA
+                    storage.dataAllowed = true;
+#else
+                    storage.dataAllowed = false;
+#endif
+                    storage.initialized = true;
+                    nvm_write((void *) &N_storage, (void *) &storage, sizeof(internalStorage_t));
+                }
+
                 USB_power(0);
                 USB_power(1);
 
@@ -289,9 +297,19 @@ static void swap_library_main_helper(struct libargs_s *args) {
                 ux_stack_push();
 #endif  // HAVE_BAGL
 
+                if (!N_storage.initialized) {
+                    internalStorage_t storage;
+#ifdef HAVE_ALLOW_DATA
+                    storage.dataAllowed = true;
+#else
+                    storage.dataAllowed = false;
+#endif
+                    storage.initialized = true;
+                    nvm_write((void *) &N_storage, (void *) &storage, sizeof(internalStorage_t));
+                }
+
                 USB_power(0);
                 USB_power(1);
-                // ui_idle();
                 PRINTF("USB power ON/OFF\n");
 #ifdef HAVE_BLE
                 // grab the current plane mode setting

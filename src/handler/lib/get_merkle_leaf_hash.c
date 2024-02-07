@@ -6,7 +6,7 @@
 #include "../../common/write.h"
 #include "../../common/merkle.h"
 #include "../../common/varint.h"
-#include "../../boilerplate/sw.h"
+#include "../../kernel/sw.h"
 #include "../client_commands.h"
 
 #include "debug-helpers/debug.h"
@@ -17,8 +17,6 @@ int call_get_merkle_leaf_hash(dispatcher_context_t *dc,
                               uint32_t tree_size,
                               uint32_t leaf_index,
                               uint8_t out[static 32]) {
-    // LOG_PROCESSOR(__FILE__, __LINE__, __func__);
-
     PRINT_STACK_POINTER();
 
     {  // make sure memory is deallocated as soon as possible

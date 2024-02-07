@@ -31,12 +31,10 @@ PATH_APP_LOAD_PARAMS = ""
 APP_LOAD_PARAMS += --path_slip21 "LEDGER-Wallet policy"
 
 # Application version
-APPVERSION_M = 2
-APPVERSION_N = 1
-APPVERSION_P = 3
+APPVERSION_M = 3
+APPVERSION_N = 0
+APPVERSION_P = 0
 APPVERSION   = "$(APPVERSION_M).$(APPVERSION_N).$(APPVERSION_P)"
-
-APP_STACK_SIZE = 3072
 
 # Setting to allow building variant applications
 VARIANT_PARAM = COIN
@@ -54,6 +52,12 @@ HAVE_APPLICATION_FLAG_DERIVE_MASTER = 1
 HAVE_APPLICATION_FLAG_GLOBAL_PIN = 1
 HAVE_APPLICATION_FLAG_BOLOS_SETTINGS = 1
 HAVE_APPLICATION_FLAG_LIBRARY = 1
+
+# Enables direct data signing without having to specify it in the settings.
+ALLOW_DATA?=0
+ifneq ($(ALLOW_DATA),0)
+DEFINES += HAVE_ALLOW_DATA
+endif
 
 ifeq ($(COIN),qtum_testnet)
 
