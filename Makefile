@@ -33,7 +33,7 @@ APP_LOAD_PARAMS += --path_slip21 "LEDGER-Wallet policy"
 # Application version
 APPVERSION_M = 3
 APPVERSION_N = 0
-APPVERSION_P = 0
+APPVERSION_P = 1
 APPVERSION   = "$(APPVERSION_M).$(APPVERSION_N).$(APPVERSION_P)"
 
 # Setting to allow building variant applications
@@ -48,8 +48,6 @@ endif
 ########################################
 #     Application custom permissions   #
 ########################################
-HAVE_APPLICATION_FLAG_DERIVE_MASTER = 1
-HAVE_APPLICATION_FLAG_GLOBAL_PIN = 1
 HAVE_APPLICATION_FLAG_BOLOS_SETTINGS = 1
 HAVE_APPLICATION_FLAG_LIBRARY = 1
 
