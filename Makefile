@@ -33,7 +33,7 @@ APP_LOAD_PARAMS += --path_slip21 "LEDGER-Wallet policy"
 # Application version
 APPVERSION_M = 3
 APPVERSION_N = 0
-APPVERSION_P = 1
+APPVERSION_P = 2
 APPVERSION   = "$(APPVERSION_M).$(APPVERSION_N).$(APPVERSION_P)"
 
 # Setting to allow building variant applications
