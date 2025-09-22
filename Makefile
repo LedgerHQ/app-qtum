@@ -33,7 +33,7 @@ APP_LOAD_PARAMS += --path_slip21 "LEDGER-Wallet policy"
 # Application version
 APPVERSION_M = 3
 APPVERSION_N = 0
-APPVERSION_P = 2
+APPVERSION_P = 3
 APPVERSION   = "$(APPVERSION_M).$(APPVERSION_N).$(APPVERSION_P)"
 
 # Setting to allow building variant applications
@@ -97,6 +97,8 @@ ICON_NANOS = icons/nanos_app_bitcoin.gif
 ICON_NANOX = icons/nanox_app_bitcoin.gif
 ICON_NANOSP = icons/nanox_app_bitcoin.gif
 ICON_STAX = icons/stax_app_bitcoin.gif
+ICON_FLEX = icons/flex_app_bitcoin.png
+ICON_APEX_P = icons/apex_app_bitcoin.png
 
 ########################################
 # Application communication interfaces #
