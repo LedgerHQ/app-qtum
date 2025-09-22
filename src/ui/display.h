@@ -15,6 +15,12 @@
 #include "../common/script.h"
 #include "../constants.h"
 
+#if defined(TARGET_STAX) || defined(TARGET_FLEX)
+#define ICON_APP C_Bitcoin_64px
+#elif defined(TARGET_APEX_P)
+#define ICON_APP C_Bitcoin_48px
+#endif
+
 // TODO: hard to keep track of what globals are used in the same flows
 //       (especially since the same flow step can be shared in different flows)
 
