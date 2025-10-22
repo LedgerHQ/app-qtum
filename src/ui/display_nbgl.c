@@ -117,7 +117,7 @@ static void transaction_confirm_callback(int token, uint8_t index) {
 static void continue_light_notify_callback(void) {
     transactionContext.tagValueList.pairs = transactionContext.tagValuePair;
 
-    transactionContext.infoLongPress.icon = &C_Bitcoin_64px;
+    transactionContext.infoLongPress.icon = &ICON_APP;
     transactionContext.infoLongPress.longPressText = "Approve";
     transactionContext.infoLongPress.longPressToken = CONFIRM_TOKEN;
     transactionContext.infoLongPress.tuneId = TUNE_TAP_CASUAL;
@@ -132,7 +132,7 @@ static void continue_light_notify_callback(void) {
 static void continue_light_processing_callback(void) {
     transactionContext.tagValueList.pairs = transactionContext.tagValuePair;
 
-    transactionContext.infoLongPress.icon = &C_Bitcoin_64px;
+    transactionContext.infoLongPress.icon = &ICON_APP;
     transactionContext.infoLongPress.longPressText = "Approve";
     transactionContext.infoLongPress.longPressToken = CONFIRM_TOKEN;
     transactionContext.infoLongPress.tuneId = TUNE_TAP_CASUAL;
@@ -147,7 +147,7 @@ static void continue_light_processing_callback(void) {
 static void continue_callback(void) {
     transactionContext.tagValueList.pairs = transactionContext.tagValuePair;
 
-    transactionContext.infoLongPress.icon = &C_Bitcoin_64px;
+    transactionContext.infoLongPress.icon = &ICON_APP;
     transactionContext.infoLongPress.longPressText = "Approve";
     transactionContext.infoLongPress.longPressToken = CONFIRM_TOKEN;
     transactionContext.infoLongPress.tuneId = TUNE_TAP_CASUAL;
@@ -162,7 +162,7 @@ static void continue_callback(void) {
 static void sign_message_callback(void) {
     transactionContext.tagValueList.pairs = transactionContext.tagValuePair;
 
-    transactionContext.infoLongPress.icon = &C_Bitcoin_64px;
+    transactionContext.infoLongPress.icon = &ICON_APP;
     transactionContext.infoLongPress.longPressText = "Hold to sign";
     transactionContext.infoLongPress.longPressToken = CONFIRM_TOKEN;
     transactionContext.infoLongPress.tuneId = TUNE_TAP_CASUAL;
@@ -198,7 +198,7 @@ static void transaction_confirm(int token, uint8_t index) {
                                           .tuneId = TUNE_TAP_CASUAL};
 
         nbgl_pageContent_t content = {.type = INFO_LONG_PRESS,
-                                      .infoLongPress.icon = &C_Bitcoin_64px,
+                                      .infoLongPress.icon = &ICON_APP,
                                       .infoLongPress.text = transactionContext.confirm,
                                       .infoLongPress.longPressText = "Hold to sign",
                                       .infoLongPress.longPressToken = CONFIRM_TOKEN,
@@ -264,7 +264,7 @@ void ui_display_transaction_prompt(const int external_outputs_total_count, const
     transactionContext.rejected_status = "Transaction rejected";
 
     nbgl_useCaseReviewStart(
-        &C_Bitcoin_64px,
+        &ICON_APP,
         sign_sender ? "Review contract\ntransaction" : "Review transaction\nto send Qtum",
         "",
         "Reject transaction",
@@ -371,7 +371,7 @@ void ui_display_pubkey_flow(void) {
     transactionContext.confirmed_status = "PUBLIC KEY\nAPPROVED";
     transactionContext.rejected_status = "Public key rejected";
 
-    nbgl_useCaseReviewStart(&C_Bitcoin_64px,
+    nbgl_useCaseReviewStart(&ICON_APP,
                             "Confirm public key",
                             "",
                             "Cancel",
@@ -392,7 +392,7 @@ void ui_display_receive_in_wallet_flow(void) {
     transactionContext.confirmed_status = "ADDRESS\nCONFIRMED";
     transactionContext.rejected_status = "Address rejected";
 
-    nbgl_useCaseReviewStart(&C_Bitcoin_64px,
+    nbgl_useCaseReviewStart(&ICON_APP,
                             "Receive\nin known wallet",
                             "",
                             "Cancel",
@@ -413,7 +413,7 @@ void ui_display_policy_map_cosigner_pubkey_flow(void) {
     transactionContext.confirmed_status = "COSIGNER\nREGISTERED";
     transactionContext.rejected_status = "Cosigner rejected";
 
-    nbgl_useCaseReviewStart(&C_Bitcoin_64px,
+    nbgl_useCaseReviewStart(&ICON_APP,
                             "Register cosigner",
                             "",
                             "Cancel",
@@ -422,7 +422,7 @@ void ui_display_policy_map_cosigner_pubkey_flow(void) {
 }
 
 static void suspicious_pubkey_warning(void) {
-    nbgl_useCaseReviewStart(&C_round_warning_64px,
+    nbgl_useCaseReviewStart(&IMPORTANT_CIRCLE_ICON,
                             "WARNING",
                             "The derivation path\nis unusual",
                             "Cancel",
@@ -442,7 +442,7 @@ void ui_display_pubkey_suspicious_flow(void) {
     transactionContext.confirm = "Approve public key";
     transactionContext.confirmed_status = "PUBLIC KEY\nAPPROVED";
     transactionContext.rejected_status = "Public key rejected";
-    nbgl_useCaseReviewStart(&C_Bitcoin_64px,
+    nbgl_useCaseReviewStart(&ICON_APP,
                             "Confirm public key",
                             "",
                             "Cancel",
@@ -464,7 +464,7 @@ void ui_display_register_wallet_flow(void) {
     transactionContext.confirmed_status = "WALLET\nREGISTERED";
     transactionContext.rejected_status = "Wallet rejected";
 
-    nbgl_useCaseReviewStart(&C_Bitcoin_64px,
+    nbgl_useCaseReviewStart(&ICON_APP,
                             "Register wallet",
                             "",
                             "Cancel",
@@ -486,7 +486,7 @@ void ui_sign_message_flow(void) {
     transactionContext.confirmed_status = "MESSAGE\nSIGNED";
     transactionContext.rejected_status = "Message rejected";
 
-    nbgl_useCaseReviewStart(&C_Bitcoin_64px,
+    nbgl_useCaseReviewStart(&ICON_APP,
                             "Review message",
                             "",
                             "Reject",
@@ -504,7 +504,7 @@ void ui_display_spend_from_wallet_flow(void) {
     transactionContext.confirmed_status = "WALLET NAME\nCONFIRMED";
     transactionContext.rejected_status = "Wallet name rejected";
 
-    nbgl_useCaseReviewStart(&C_Bitcoin_64px,
+    nbgl_useCaseReviewStart(&ICON_APP,
                             "Spend from\nknown wallet",
                             "",
                             "Cancel",
@@ -522,7 +522,7 @@ void ui_display_canonical_wallet_address_flow(void) {
     transactionContext.confirmed_status = "ADDRESS\nVERIFIED";
     transactionContext.rejected_status = "Address verification\ncancelled";
 
-    nbgl_useCaseReviewStart(&C_Bitcoin_64px,
+    nbgl_useCaseReviewStart(&ICON_APP,
                             "Verify Qtum\naddress",
                             "",
                             "Cancel",
@@ -532,7 +532,7 @@ void ui_display_canonical_wallet_address_flow(void) {
 
 // Warning Flows
 void ui_display_warning_external_inputs_flow(void) {
-    nbgl_useCaseChoice(&C_round_warning_64px,
+    nbgl_useCaseChoice(&IMPORTANT_CIRCLE_ICON,
                        "Warning",
                        "There are external inputs",
                        "Continue",
@@ -541,7 +541,7 @@ void ui_display_warning_external_inputs_flow(void) {
 }
 
 void ui_display_unverified_segwit_inputs_flows(void) {
-    nbgl_useCaseChoice(&C_round_warning_64px,
+    nbgl_useCaseChoice(&IMPORTANT_CIRCLE_ICON,
                        "Warning",
                        "Unverified inputs\nUpdate Ledger Live or\nthird party wallet software",
                        "Continue",
@@ -550,7 +550,7 @@ void ui_display_unverified_segwit_inputs_flows(void) {
 }
 
 void ui_display_nondefault_sighash_flow(void) {
-    nbgl_useCaseChoice(&C_round_warning_64px,
+    nbgl_useCaseChoice(&IMPORTANT_CIRCLE_ICON,
                        "Warning",
                        "Non-default sighash",
                        "Continue",
@@ -600,7 +600,7 @@ static void ui_warning_contract_data_choice(bool confirm) {
 }
 
 void ui_warning_contract_data(void) {
-    nbgl_useCaseChoice(&C_round_warning_64px,
+    nbgl_useCaseChoice(&IMPORTANT_CIRCLE_ICON,
                        "This message cannot\nbe clear-signed",
                        "Enable blind-signing in\nthe settings to sign\nthis transaction.",
                        "Exit",
