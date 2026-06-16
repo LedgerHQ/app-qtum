@@ -140,9 +140,6 @@ ifeq ($(TARGET_NAME),TARGET_NANOS)
     DEFINES   += USE_CXRAM_SECTION
 endif
 
-# debugging helper functions and macros
-CFLAGS    += -include debug-helpers/debug.h
-
 # DEFINES   += HAVE_PRINT_STACK_POINTER
 
 ifeq ($(DEBUG),10)
