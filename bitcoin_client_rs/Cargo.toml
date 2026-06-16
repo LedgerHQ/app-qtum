@@ -33,3 +33,10 @@ tokio = { version = "1.21", features = ["macros", "rt", "rt-multi-thread"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 base64 = "0.13.0"
+
+# `core2` 0.3.x (a transitive dependency of `bitcoin 0.29.1` with the `no-std`
+# feature) has been yanked from crates.io, which breaks fresh dependency
+# resolution. Redirect it to the upstream git source (same 0.3.x code, not
+# subject to the yank) so `cargo test` can resolve again.
+[patch.crates-io]
+core2 = { git = "https://github.com/technocreatives/core2", tag = "v0.3.3" }
