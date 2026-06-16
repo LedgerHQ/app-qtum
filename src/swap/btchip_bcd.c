@@ -17,8 +17,8 @@
 
 #define SCRATCH_SIZE 21
 
-unsigned char btchip_convert_hex_amount_to_displayable_no_globals(unsigned char* amount,
-                                                                  unsigned char* out) {
+unsigned char btchip_convert_hex_amount_to_displayable_no_globals(
+    unsigned char* amount, unsigned char* out) {
     unsigned char LOOP1 = 13;
     unsigned char LOOP2 = 8;
 
@@ -40,7 +40,8 @@ unsigned char btchip_convert_hex_amount_to_displayable_no_globals(unsigned char*
         for (j = 0; j < 8; j++) {
             unsigned char k;
             unsigned short shifted_in =
-                (((amount[i] & 0xff) & ((1 << (7 - j)))) != 0) ? (short) 1 : (short) 0;
+                (((amount[i] & 0xff) & ((1 << (7 - j)))) != 0) ? (short)1
+                                                               : (short)0;
             for (k = smin; k < nscratch; k++) {
                 scratch[k] += ((scratch[k] >= 5) ? 3 : 0);
             }
@@ -48,10 +49,11 @@ unsigned char btchip_convert_hex_amount_to_displayable_no_globals(unsigned char*
                 smin -= 1;
             }
             for (k = smin; k < nscratch - 1; k++) {
-                scratch[k] = ((scratch[k] << 1) & 0xF) | ((scratch[k + 1] >= 8) ? 1 : 0);
+                scratch[k] =
+                    ((scratch[k] << 1) & 0xF) | ((scratch[k + 1] >= 8) ? 1 : 0);
             }
-            scratch[nscratch - 1] =
-                ((scratch[nscratch - 1] << 1) & 0x0F) | (shifted_in == 1 ? 1 : 0);
+            scratch[nscratch - 1] = ((scratch[nscratch - 1] << 1) & 0x0F) |
+                                    (shifted_in == 1 ? 1 : 0);
         }
     }
 

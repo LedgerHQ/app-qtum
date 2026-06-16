@@ -14,17 +14,17 @@
  *  limitations under the License.
  *****************************************************************************/
 
+#include "format.h"
+
+#include <stdbool.h>  // bool
 #include <stddef.h>   // size_t
 #include <stdint.h>   // int*_t, uint*_t
 #include <string.h>   // strncpy, memmove
-#include <stdbool.h>  // bool
 
-#include "format.h"
-
-bool format_i64(char *dst, size_t dst_len, const int64_t value) {
+bool format_i64(char* dst, size_t dst_len, const int64_t value) {
     char temp[] = "-9223372036854775808";
 
-    char *ptr = temp;
+    char* ptr = temp;
     int64_t num = value;
     int sign = 1;
 
@@ -45,7 +45,7 @@ bool format_i64(char *dst, size_t dst_len, const int64_t value) {
 
     int distance = (ptr - temp) + 1;
 
-    if ((int) dst_len < distance) {
+    if ((int)dst_len < distance) {
         return false;
     }
 
@@ -60,7 +60,7 @@ bool format_i64(char *dst, size_t dst_len, const int64_t value) {
     return true;
 }
 
-bool format_u64(char *out, size_t outLen, uint64_t in) {
+bool format_u64(char* out, size_t outLen, uint64_t in) {
     uint8_t i = 0;
 
     if (outLen == 0) {
@@ -95,7 +95,8 @@ bool format_u64(char *out, size_t outLen, uint64_t in) {
     return true;
 }
 
-bool format_fpu64(char *dst, size_t dst_len, const uint64_t value, uint8_t decimals) {
+bool format_fpu64(char* dst, size_t dst_len, const uint64_t value,
+                  uint8_t decimals) {
     char buffer[21] = {0};
 
     if (!format_u64(buffer, sizeof(buffer), value)) {
@@ -129,7 +130,7 @@ bool format_fpu64(char *dst, size_t dst_len, const uint64_t value, uint8_t decim
     return true;
 }
 
-int format_hex(const uint8_t *in, size_t in_len, char *out, size_t out_len) {
+int format_hex(const uint8_t* in, size_t in_len, char* out, size_t out_len) {
     if (out_len < 2 * in_len + 1) {
         return -1;
     }

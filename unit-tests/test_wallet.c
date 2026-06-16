@@ -1,110 +1,114 @@
-#include <stdarg.h>
-#include <stddef.h>
+// clang-format off
+// cmocka.h must be included last: it relies on types from the headers above
+// (size_t, jmp_buf, va_list). Do not let clang-format sort these.
 #include <setjmp.h>
-#include <stdint.h>
+#include <stdarg.h>
 #include <stdbool.h>
-#include <string.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
-
+#include <string.h>
 #include <cmocka.h>
+// clang-format on
 
 // missing definitions to make it compile without the SDK
-unsigned int pic(unsigned int linked_address) {
-    return linked_address;
-}
+unsigned int pic(unsigned int linked_address) { return linked_address; }
 
 #define PRINTF(...) printf
-#define PIC(x)      (x)
+#define PIC(x) (x)
 
 #include "common/wallet.h"
 
-static int parse_policy(const char *descriptor_template, uint8_t *out, size_t out_size) {
+static int parse_policy(const char* descriptor_template, uint8_t* out,
+                        size_t out_size) {
     buffer_t descriptor_template_buf =
-        buffer_create((void *) descriptor_template, strlen(descriptor_template));
+        buffer_create((void*)descriptor_template, strlen(descriptor_template));
 
-    return parse_descriptor_template(&descriptor_template_buf,
-                                     out,
-                                     out_size,
+    return parse_descriptor_template(&descriptor_template_buf, out, out_size,
                                      WALLET_POLICY_VERSION_V2);
 }
 
-// in unit tests, size_t integers are currently 8 compiled as 8 bytes; therefore, in the app
-// about half of the memory would be needed
+// in unit tests, size_t integers are currently 8 compiled as 8 bytes;
+// therefore, in the app about half of the memory would be needed
 #define MAX_WALLET_POLICY_MEMORY_SIZE 512
 
-// convenience function to compactly check common assertions on a key placeholder pointer
-static void check_key_placeholder(const policy_node_key_placeholder_t *ptr,
-                                  int key_index,
-                                  uint32_t num_first,
+// convenience function to compactly check common assertions on a key
+// placeholder pointer
+static void check_key_placeholder(const policy_node_key_placeholder_t* ptr,
+                                  int key_index, uint32_t num_first,
                                   uint32_t num_second) {
     assert_int_equal(ptr->key_index, key_index);
     assert_int_equal(ptr->num_first, num_first);
     assert_int_equal(ptr->num_second, num_second);
 }
 
-static void test_parse_policy_map_singlesig_1(void **state) {
-    (void) state;
+static void test_parse_policy_map_singlesig_1(void** state) {
+    (void)state;
 
     uint8_t out[MAX_WALLET_POLICY_MEMORY_SIZE];
 
     int res = parse_policy("pkh(@0/**)", out, sizeof(out));
 
     assert_int_equal(res, 0);
-    policy_node_with_key_t *node_1 = (policy_node_with_key_t *) out;
+    policy_node_with_key_t* node_1 = (policy_node_with_key_t*)out;
 
     assert_int_equal(node_1->base.type, TOKEN_PKH);
     check_key_placeholder(node_1->key_placeholder, 0, 0, 1);
 }
 
-static void test_parse_policy_map_singlesig_2(void **state) {
-    (void) state;
+static void test_parse_policy_map_singlesig_2(void** state) {
+    (void)state;
 
     uint8_t out[MAX_WALLET_POLICY_MEMORY_SIZE];
 
     int res = parse_policy("sh(wpkh(@0/**))", out, sizeof(out));
 
     assert_int_equal(res, 0);
-    policy_node_with_script_t *root = (policy_node_with_script_t *) out;
+    policy_node_with_script_t* root = (policy_node_with_script_t*)out;
 
     assert_int_equal(root->base.type, TOKEN_SH);
 
-    policy_node_with_key_t *inner = (policy_node_with_key_t *) resolve_ptr(&root->script);
+    policy_node_with_key_t* inner =
+        (policy_node_with_key_t*)resolve_ptr(&root->script);
 
     assert_int_equal(inner->base.type, TOKEN_WPKH);
     check_key_placeholder(inner->key_placeholder, 0, 0, 1);
 }
 
-static void test_parse_policy_map_singlesig_3(void **state) {
-    (void) state;
+static void test_parse_policy_map_singlesig_3(void** state) {
+    (void)state;
 
     uint8_t out[MAX_WALLET_POLICY_MEMORY_SIZE];
 
     int res = parse_policy("sh(wsh(pkh(@0/**)))", out, sizeof(out));
 
     assert_int_equal(res, 0);
-    policy_node_with_script_t *root = (policy_node_with_script_t *) out;
+    policy_node_with_script_t* root = (policy_node_with_script_t*)out;
 
     assert_int_equal(root->base.type, TOKEN_SH);
 
-    policy_node_with_script_t *mid = (policy_node_with_script_t *) resolve_ptr(&root->script);
+    policy_node_with_script_t* mid =
+        (policy_node_with_script_t*)resolve_ptr(&root->script);
 
     assert_int_equal(mid->base.type, TOKEN_WSH);
 
-    policy_node_with_key_t *inner = (policy_node_with_key_t *) resolve_ptr(&mid->script);
+    policy_node_with_key_t* inner =
+        (policy_node_with_key_t*)resolve_ptr(&mid->script);
 
     assert_int_equal(inner->base.type, TOKEN_PKH);
     check_key_placeholder(inner->key_placeholder, 0, 0, 1);
 }
 
-static void test_parse_policy_map_multisig_1(void **state) {
-    (void) state;
+static void test_parse_policy_map_multisig_1(void** state) {
+    (void)state;
 
     uint8_t out[MAX_WALLET_POLICY_MEMORY_SIZE];
 
-    int res = parse_policy("sortedmulti(2,@0/**,@1/**,@2/**)", out, sizeof(out));
+    int res =
+        parse_policy("sortedmulti(2,@0/**,@1/**,@2/**)", out, sizeof(out));
 
     assert_int_equal(res, 0);
-    policy_node_multisig_t *node_1 = (policy_node_multisig_t *) out;
+    policy_node_multisig_t* node_1 = (policy_node_multisig_t*)out;
 
     assert_int_equal(node_1->base.type, TOKEN_SORTEDMULTI);
     assert_int_equal(node_1->k, 2);
@@ -114,19 +118,21 @@ static void test_parse_policy_map_multisig_1(void **state) {
     check_key_placeholder(&node_1->key_placeholders[2], 2, 0, 1);
 }
 
-static void test_parse_policy_map_multisig_2(void **state) {
-    (void) state;
+static void test_parse_policy_map_multisig_2(void** state) {
+    (void)state;
 
     uint8_t out[MAX_WALLET_POLICY_MEMORY_SIZE];
 
-    int res = parse_policy("wsh(multi(3,@0/**,@1/**,@2/**,@3/**,@4/**))", out, sizeof(out));
+    int res = parse_policy("wsh(multi(3,@0/**,@1/**,@2/**,@3/**,@4/**))", out,
+                           sizeof(out));
 
     assert_int_equal(res, 0);
-    policy_node_with_script_t *root = (policy_node_with_script_t *) out;
+    policy_node_with_script_t* root = (policy_node_with_script_t*)out;
 
     assert_int_equal(root->base.type, TOKEN_WSH);
 
-    policy_node_multisig_t *inner = (policy_node_multisig_t *) resolve_ptr(&root->script);
+    policy_node_multisig_t* inner =
+        (policy_node_multisig_t*)resolve_ptr(&root->script);
     assert_int_equal(inner->base.type, TOKEN_MULTI);
 
     assert_int_equal(inner->k, 3);
@@ -136,23 +142,26 @@ static void test_parse_policy_map_multisig_2(void **state) {
     }
 }
 
-static void test_parse_policy_map_multisig_3(void **state) {
-    (void) state;
+static void test_parse_policy_map_multisig_3(void** state) {
+    (void)state;
 
     uint8_t out[MAX_WALLET_POLICY_MEMORY_SIZE];
 
     int res =
-        parse_policy("sh(wsh(sortedmulti(3,@0/**,@1/**,@2/**,@3/**,@4/**)))", out, sizeof(out));
+        parse_policy("sh(wsh(sortedmulti(3,@0/**,@1/**,@2/**,@3/**,@4/**)))",
+                     out, sizeof(out));
 
     assert_int_equal(res, 0);
-    policy_node_with_script_t *root = (policy_node_with_script_t *) out;
+    policy_node_with_script_t* root = (policy_node_with_script_t*)out;
 
     assert_int_equal(root->base.type, TOKEN_SH);
 
-    policy_node_with_script_t *mid = (policy_node_with_script_t *) resolve_ptr(&root->script);
+    policy_node_with_script_t* mid =
+        (policy_node_with_script_t*)resolve_ptr(&root->script);
     assert_int_equal(mid->base.type, TOKEN_WSH);
 
-    policy_node_multisig_t *inner = (policy_node_multisig_t *) resolve_ptr(&mid->script);
+    policy_node_multisig_t* inner =
+        (policy_node_multisig_t*)resolve_ptr(&mid->script);
     assert_int_equal(inner->base.type, TOKEN_SORTEDMULTI);
 
     assert_int_equal(inner->k, 3);
@@ -162,8 +171,8 @@ static void test_parse_policy_map_multisig_3(void **state) {
     }
 }
 
-static void test_parse_policy_tr(void **state) {
-    (void) state;
+static void test_parse_policy_tr(void** state) {
+    (void)state;
 
     uint8_t out[MAX_WALLET_POLICY_MEMORY_SIZE];
     int res;
@@ -172,7 +181,7 @@ static void test_parse_policy_tr(void **state) {
     res = parse_policy("tr(@0/**)", out, sizeof(out));
 
     assert_int_equal(res, 0);
-    policy_node_tr_t *root = (policy_node_tr_t *) out;
+    policy_node_tr_t* root = (policy_node_tr_t*)out;
 
     assert_ptr_equal(root->tree, NULL);
     check_key_placeholder(root->key_placeholder, 0, 0, 1);
@@ -181,73 +190,78 @@ static void test_parse_policy_tr(void **state) {
     res = parse_policy("tr(@0/**,pk(@1/**))", out, sizeof(out));
 
     assert_int_equal(res, 0);
-    root = (policy_node_tr_t *) out;
+    root = (policy_node_tr_t*)out;
 
     check_key_placeholder(root->key_placeholder, 0, 0, 1);
 
     assert_int_equal(root->tree->is_leaf, true);
 
-    policy_node_with_key_t *tapscript = (policy_node_with_key_t *) resolve_ptr(&root->tree->script);
+    policy_node_with_key_t* tapscript =
+        (policy_node_with_key_t*)resolve_ptr(&root->tree->script);
 
     assert_int_equal(tapscript->base.type, TOKEN_PK);
     check_key_placeholder(tapscript->key_placeholder, 1, 0, 1);
 
     // Simple tr with a TREE with two tapleaves
-    res = parse_policy("tr(@0/**,{pk(@1/**),pk(@2/<5;7>/*)})", out, sizeof(out));
+    res =
+        parse_policy("tr(@0/**,{pk(@1/**),pk(@2/<5;7>/*)})", out, sizeof(out));
 
     assert_int_equal(res, 0);
-    root = (policy_node_tr_t *) out;
+    root = (policy_node_tr_t*)out;
 
     check_key_placeholder(root->key_placeholder, 0, 0, 1);
 
-    policy_node_tree_t *taptree = root->tree;
+    policy_node_tree_t* taptree = root->tree;
 
     assert_int_equal(taptree->is_leaf, false);
 
-    policy_node_tree_t *taptree_left = (policy_node_tree_t *) resolve_ptr(&taptree->left_tree);
+    policy_node_tree_t* taptree_left =
+        (policy_node_tree_t*)resolve_ptr(&taptree->left_tree);
     assert_int_equal(taptree_left->is_leaf, true);
-    policy_node_with_key_t *tapscript_left =
-        (policy_node_with_key_t *) resolve_ptr(&taptree_left->script);
+    policy_node_with_key_t* tapscript_left =
+        (policy_node_with_key_t*)resolve_ptr(&taptree_left->script);
 
     assert_int_equal(tapscript_left->base.type, TOKEN_PK);
     check_key_placeholder(tapscript_left->key_placeholder, 1, 0, 1);
 
-    policy_node_tree_t *taptree_right = (policy_node_tree_t *) resolve_ptr(&taptree->right_tree);
+    policy_node_tree_t* taptree_right =
+        (policy_node_tree_t*)resolve_ptr(&taptree->right_tree);
     assert_int_equal(taptree_right->is_leaf, true);
-    policy_node_with_key_t *tapscript_right =
-        (policy_node_with_key_t *) resolve_ptr(&taptree_right->script);
+    policy_node_with_key_t* tapscript_right =
+        (policy_node_with_key_t*)resolve_ptr(&taptree_right->script);
 
     assert_int_equal(tapscript_right->base.type, TOKEN_PK);
     check_key_placeholder(tapscript_right->key_placeholder, 2, 5, 7);
 }
 
-static void test_parse_policy_tr_multisig(void **state) {
-    (void) state;
+static void test_parse_policy_tr_multisig(void** state) {
+    (void)state;
 
     uint8_t out[MAX_WALLET_POLICY_MEMORY_SIZE];
     int res;
 
     // tr with a tree with two scripts: a multi_a and a sortedmulti_a:
-    res = parse_policy("tr(@0/**,{multi_a(1,@1/**,@2/**),sortedmulti_a(2,@3/**,@4/**,@5/**)})",
-                       out,
-                       sizeof(out));
+    res = parse_policy(
+        "tr(@0/**,{multi_a(1,@1/**,@2/**),sortedmulti_a(2,@3/**,@4/**,@5/**)})",
+        out, sizeof(out));
 
     assert_int_equal(res, 0);
 
-    policy_node_tr_t *root = (policy_node_tr_t *) out;
+    policy_node_tr_t* root = (policy_node_tr_t*)out;
 
     assert_int_equal(root->key_placeholder->key_index, 0);
     assert_int_equal(root->key_placeholder->num_first, 0);
     assert_int_equal(root->key_placeholder->num_second, 1);
 
-    policy_node_tree_t *taptree = root->tree;
+    policy_node_tree_t* taptree = root->tree;
 
     assert_int_equal(taptree->is_leaf, false);
 
-    policy_node_tree_t *taptree_left = (policy_node_tree_t *) resolve_ptr(&taptree->left_tree);
+    policy_node_tree_t* taptree_left =
+        (policy_node_tree_t*)resolve_ptr(&taptree->left_tree);
     assert_int_equal(taptree_left->is_leaf, true);
-    policy_node_multisig_t *tapscript_left =
-        (policy_node_multisig_t *) resolve_ptr(&taptree_left->script);
+    policy_node_multisig_t* tapscript_left =
+        (policy_node_multisig_t*)resolve_ptr(&taptree_left->script);
 
     assert_int_equal(tapscript_left->base.type, TOKEN_MULTI_A);
     assert_int_equal(tapscript_left->k, 1);
@@ -255,10 +269,11 @@ static void test_parse_policy_tr_multisig(void **state) {
     check_key_placeholder(&tapscript_left->key_placeholders[0], 1, 0, 1);
     check_key_placeholder(&tapscript_left->key_placeholders[1], 2, 0, 1);
 
-    policy_node_tree_t *taptree_right = (policy_node_tree_t *) resolve_ptr(&taptree->right_tree);
+    policy_node_tree_t* taptree_right =
+        (policy_node_tree_t*)resolve_ptr(&taptree->right_tree);
     assert_int_equal(taptree_right->is_leaf, true);
-    policy_node_multisig_t *tapscript_right =
-        (policy_node_multisig_t *) resolve_ptr(&taptree_right->script);
+    policy_node_multisig_t* tapscript_right =
+        (policy_node_multisig_t*)resolve_ptr(&taptree_right->script);
 
     assert_int_equal(tapscript_right->base.type, TOKEN_SORTEDMULTI_A);
     assert_int_equal(tapscript_right->k, 2);
@@ -268,11 +283,11 @@ static void test_parse_policy_tr_multisig(void **state) {
     check_key_placeholder(&tapscript_right->key_placeholders[2], 5, 0, 1);
 }
 
-static void test_get_policy_segwit_version(void **state) {
-    (void) state;
+static void test_get_policy_segwit_version(void** state) {
+    (void)state;
 
     uint8_t out[MAX_WALLET_POLICY_MEMORY_SIZE];
-    policy_node_t *policy = out;
+    policy_node_t* policy = (policy_node_t*) out;
 
     // legacy policies (returning -1)
     parse_policy("pkh(@0/**)", out, sizeof(out));
@@ -298,8 +313,8 @@ static void test_get_policy_segwit_version(void **state) {
     assert(get_policy_segwit_version(policy) == 1);
 }
 
-static void test_failures(void **state) {
-    (void) state;
+static void test_failures(void** state) {
+    (void)state;
 
     uint8_t out[MAX_WALLET_POLICY_MEMORY_SIZE];
 
@@ -311,7 +326,8 @@ static void test_failures(void **state) {
 
     // unknown token
     assert_true(0 > parse_policy("yolo(@0/**)", out, sizeof(out)));
-    assert_true(0 > parse_policy("Pkh(@0/**)", out, sizeof(out)));  // case-sensitive
+    assert_true(
+        0 > parse_policy("Pkh(@0/**)", out, sizeof(out)));  // case-sensitive
 
     // missing or invalid key identifier
     assert_true(0 > parse_policy("pkh()", out, sizeof(out)));
@@ -328,12 +344,13 @@ static void test_failures(void **state) {
     assert_true(0 > parse_policy("wsh(wpkh(@0/**)))", out, sizeof(out)));
 
     // multi with invalid threshold
-    assert_true(0 > parse_policy("multi(6,@0/**,@1/**,@2/**,@3/**,@4/**)",
-                                 out,
+    assert_true(0 > parse_policy("multi(6,@0/**,@1/**,@2/**,@3/**,@4/**)", out,
                                  sizeof(out)));  // threshold larger than n
-    assert_true(0 > parse_policy("multi(0,@0/**,@1/**,@2/**,@3/**,@4/**)", out, sizeof(out)));
+    assert_true(0 > parse_policy("multi(0,@0/**,@1/**,@2/**,@3/**,@4/**)", out,
+                                 sizeof(out)));
     // missing threshold or keys in multisig
-    assert_true(0 > parse_policy("multi(@0/**,@1/**,@2/**,@3/**,@4/**)", out, sizeof(out)));
+    assert_true(0 > parse_policy("multi(@0/**,@1/**,@2/**,@3/**,@4/**)", out,
+                                 sizeof(out)));
     assert_true(0 > parse_policy("multi(1)", out, sizeof(out)));
     assert_true(0 > parse_policy("multi(1,)", out, sizeof(out)));
 
@@ -351,7 +368,8 @@ static void test_failures(void **state) {
 
     // invalid tokens within tr scripts
     assert_true(0 > parse_policy("tr(@0/**,multi(2,@1,@2))", out, sizeof(out)));
-    assert_true(0 > parse_policy("tr(@0/**,sortedmulti(2,@1,@2))", out, sizeof(out)));
+    assert_true(
+        0 > parse_policy("tr(@0/**,sortedmulti(2,@1,@2))", out, sizeof(out)));
     assert_true(0 > parse_policy("tr(@0/**,sh(pk(@0/**)))", out, sizeof(out)));
     assert_true(0 > parse_policy("tr(@0/**,wsh(pk(@0/**)))", out, sizeof(out)));
 }
@@ -364,7 +382,8 @@ enum TestMode {
     TESTMODE_TIMELOCKMIX = 8  // ignored in our tests
 };
 
-static void Test(const char *ms, const char *hexscript, int mode, int opslimit, int stacklimit) {
+static void Test(const char* ms, const char* hexscript, int mode, int opslimit,
+                 int stacklimit) {
     char descriptor[1024];
 
     if (strlen(ms) + sizeof("wsh()") > sizeof(descriptor)) {
@@ -379,11 +398,10 @@ static void Test(const char *ms, const char *hexscript, int mode, int opslimit, 
     uint8_t out[MAX_WALLET_POLICY_MEMORY_SIZE];
 
     int res;
-    buffer_t descriptor_template_buf = buffer_create((void *) descriptor, strlen(descriptor));
+    buffer_t descriptor_template_buf =
+        buffer_create((void*)descriptor, strlen(descriptor));
 
-    res = parse_descriptor_template(&descriptor_template_buf,
-                                    out,
-                                    sizeof(out),
+    res = parse_descriptor_template(&descriptor_template_buf, out, sizeof(out),
                                     WALLET_POLICY_VERSION_V2);
 
     if (mode == TESTMODE_INVALID) {
@@ -391,9 +409,10 @@ static void Test(const char *ms, const char *hexscript, int mode, int opslimit, 
     } else {
         assert_true(res == 0);
 
-        policy_node_with_script_t *policy = (policy_node_with_script_t *) out;
+        policy_node_with_script_t* policy = (policy_node_with_script_t*)out;
         policy_node_ext_info_t ext_info;
-        res = compute_miniscript_policy_ext_info(resolve_ptr(&policy->script), &ext_info);
+        res = compute_miniscript_policy_ext_info(resolve_ptr(&policy->script),
+                                                 &ext_info);
 
         assert_true(res == 0);
 
@@ -403,7 +422,8 @@ static void Test(const char *ms, const char *hexscript, int mode, int opslimit, 
         int is_k = (mode & TESTMODE_TIMELOCKMIX) ? 0 : 1;
 
         // the hexscript is only used to compare with the script length
-        // (since the pubkeys are missing in the descriptor template, the exact bytes are not known)
+        // (since the pubkeys are missing in the descriptor template, the exact
+        // bytes are not known)
         int scriptlen = strlen(hexscript) / 2;
 
         assert_true(ext_info.s == is_expected_needsig);
@@ -416,8 +436,8 @@ static void Test(const char *ms, const char *hexscript, int mode, int opslimit, 
         }
 
         if (opslimit != -1) {
-            // if ext_info.ops.sat, we want to use 0 (consistently with bitcoin-core's
-            // implementation)
+            // if ext_info.ops.sat, we want to use 0 (consistently with
+            // bitcoin-core's implementation)
             int ops_sat = (ext_info.ops.sat == -1) ? 0 : ext_info.ops.sat;
 
             int computed_opslimit = ext_info.ops.count + ops_sat;
@@ -431,13 +451,14 @@ static void Test(const char *ms, const char *hexscript, int mode, int opslimit, 
     }
 }
 
-static void test_miniscript_types(void **state) {
-    (void) state;
+static void test_miniscript_types(void** state) {
+    (void)state;
 
     // tests for miniscript type system
     // Tests taken from
     // https://github.com/bitcoin/bitcoin/blob/5bf65ec66e5986c9188e3f6234f1c5c0f8dc7f90/src/test/miniscript_tests.cpp,
-    // except that all key expressions are replaced with placeholders @0/**, @1/**, ...
+    // except that all key expressions are replaced with placeholders @0/**,
+    // @1/**, ...
 
     // clang-format off
     Test("l:older(1)", "?", TESTMODE_VALID | TESTMODE_NONMAL, -1, -1); // older(1): valid

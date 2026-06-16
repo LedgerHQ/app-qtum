@@ -1,10 +1,14 @@
+// clang-format off
+// cmocka.h must be included last: it relies on types from the headers above
+// (size_t, jmp_buf, va_list). Do not let clang-format sort these.
+#include <setjmp.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdbool.h>
 #include <string.h>
-#include <setjmp.h>
 #include <cmocka.h>
+// clang-format on
 
 #include "../src/crypto.h"
 
@@ -55,8 +59,8 @@ const uint8_t uncompressed_key_invalid[] = {
 };
 // clang-format on
 
-static void test_get_compressed_pubkey_02(void **state) {
-    (void) state;
+static void test_get_compressed_pubkey_02(void** state) {
+    (void)state;
 
     uint8_t key_in[65], key_out[33];
     memcpy(key_in, uncompressed_key_02, 65);
@@ -68,8 +72,8 @@ static void test_get_compressed_pubkey_02(void **state) {
     assert_memory_equal(key_in, uncompressed_key_02, 65);
 }
 
-static void test_get_compressed_pubkey_03(void **state) {
-    (void) state;
+static void test_get_compressed_pubkey_03(void** state) {
+    (void)state;
 
     uint8_t key_in[65], key_out[33];
     memcpy(key_in, uncompressed_key_03, 65);
@@ -82,8 +86,8 @@ static void test_get_compressed_pubkey_03(void **state) {
 }
 
 // Test that it also works if key_out == key_in
-static void test_get_compressed_pubkey_in_place(void **state) {
-    (void) state;
+static void test_get_compressed_pubkey_in_place(void** state) {
+    (void)state;
 
     uint8_t key_in_out[65];
     memcpy(key_in_out, uncompressed_key_02, 65);
@@ -94,8 +98,8 @@ static void test_get_compressed_pubkey_in_place(void **state) {
     assert_memory_equal(key_in_out, compressed_key_02, 33);
 }
 
-static void test_get_compressed_pubkey_invalid(void **state) {
-    (void) state;
+static void test_get_compressed_pubkey_invalid(void** state) {
+    (void)state;
 
     uint8_t key_in[65], key_out[33];
     memcpy(key_in, uncompressed_key_invalid, 65);
@@ -105,10 +109,11 @@ static void test_get_compressed_pubkey_invalid(void **state) {
 }
 
 int main() {
-    const struct CMUnitTest tests[] = {cmocka_unit_test(test_get_compressed_pubkey_02),
-                                       cmocka_unit_test(test_get_compressed_pubkey_03),
-                                       cmocka_unit_test(test_get_compressed_pubkey_in_place),
-                                       cmocka_unit_test(test_get_compressed_pubkey_invalid)};
+    const struct CMUnitTest tests[] = {
+        cmocka_unit_test(test_get_compressed_pubkey_02),
+        cmocka_unit_test(test_get_compressed_pubkey_03),
+        cmocka_unit_test(test_get_compressed_pubkey_in_place),
+        cmocka_unit_test(test_get_compressed_pubkey_invalid)};
 
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

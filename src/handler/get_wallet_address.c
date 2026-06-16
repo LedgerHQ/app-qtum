@@ -17,8 +17,7 @@
 
 #include <stdint.h>
 
-#include "kernel/io.h"
-#include "kernel/sw.h"
+#include "../commands.h"
 #include "../common/base58.h"
 #include "../common/bip32.h"
 #include "../common/buffer.h"
@@ -27,23 +26,22 @@
 #include "../common/script.h"
 #include "../common/segwit_addr.h"
 #include "../common/wallet.h"
-#include "../commands.h"
 #include "../constants.h"
 #include "../crypto.h"
+#include "../swap/swap_globals.h"
 #include "../ui/display.h"
 #include "../ui/menu.h"
-
-#include "../swap/swap_globals.h"
-
-#include "lib/policy.h"
-#include "lib/get_preimage.h"
-#include "lib/get_merkle_leaf_element.h"
-
-#include "handlers.h"
 #include "client_commands.h"
+#include "handlers.h"
+#include "kernel/io.h"
+#include "kernel/sw.h"
+#include "lib/get_merkle_leaf_element.h"
+#include "lib/get_preimage.h"
+#include "lib/policy.h"
 
-void handler_get_wallet_address(dispatcher_context_t *dc, uint8_t protocol_version) {
-    (void) protocol_version;
+void handler_get_wallet_address(dispatcher_context_t* dc,
+                                uint8_t protocol_version) {
+    (void)protocol_version;
 
     LOG_PROCESSOR(__FILE__, __LINE__, __func__);
 
@@ -102,38 +100,37 @@ void handler_get_wallet_address(dispatcher_context_t *dc, uint8_t protocol_versi
         uint8_t serialized_wallet_policy[MAX_WALLET_POLICY_SERIALIZED_LENGTH];
 
         // Fetch the serialized wallet policy from the client
-        int serialized_wallet_policy_len = call_get_preimage(dc,
-                                                             wallet_id,
-                                                             serialized_wallet_policy,
-                                                             sizeof(serialized_wallet_policy));
+        int serialized_wallet_policy_len =
+            call_get_preimage(dc, wallet_id, serialized_wallet_policy,
+                              sizeof(serialized_wallet_policy));
         if (serialized_wallet_policy_len < 0) {
             SEND_SW(dc, SW_INCORRECT_DATA);
             return;
         }
 
-        buffer_t serialized_wallet_policy_buf =
-            buffer_create(serialized_wallet_policy, serialized_wallet_policy_len);
+        buffer_t serialized_wallet_policy_buf = buffer_create(
+            serialized_wallet_policy, serialized_wallet_policy_len);
 
         uint8_t policy_map_descriptor[MAX_DESCRIPTOR_TEMPLATE_LENGTH];
-        if (0 > read_and_parse_wallet_policy(dc,
-                                             &serialized_wallet_policy_buf,
-                                             &wallet_header,
-                                             policy_map_descriptor,
-                                             wallet_policy_map.bytes,
-                                             sizeof(wallet_policy_map.bytes))) {
+        if (0 > read_and_parse_wallet_policy(
+                    dc, &serialized_wallet_policy_buf, &wallet_header,
+                    policy_map_descriptor, wallet_policy_map.bytes,
+                    sizeof(wallet_policy_map.bytes))) {
             SEND_SW(dc, SW_INCORRECT_DATA);
             return;
         }
     }
 
-    // the binary OR of all the hmac bytes (so == 0 iff the hmac is identically 0)
+    // the binary OR of all the hmac bytes (so == 0 iff the hmac is identically
+    // 0)
     uint8_t hmac_or = 0;
     for (int i = 0; i < 32; i++) {
         hmac_or = hmac_or | wallet_hmac[i];
     }
 
     if (hmac_or == 0) {
-        // No hmac, verify that the policy is a canonical one that is allowed by default
+        // No hmac, verify that the policy is a canonical one that is allowed by
+        // default
         address_type = get_policy_address_type(&wallet_policy_map.parsed);
         if (address_type == -1) {
             PRINTF("Non-standard policy, and no hmac provided\n");
@@ -151,12 +148,10 @@ void handler_get_wallet_address(dispatcher_context_t *dc, uint8_t protocol_versi
         uint32_t master_key_fingerprint = crypto_get_master_key_fingerprint();
 
         uint8_t key_info_str[MAX_POLICY_KEY_INFO_LEN];
-        int key_info_len = call_get_merkle_leaf_element(dc,
-                                                        wallet_header.keys_info_merkle_root,
-                                                        wallet_header.n_keys,
-                                                        0,  // only one key
-                                                        key_info_str,
-                                                        sizeof(key_info_str));
+        int key_info_len = call_get_merkle_leaf_element(
+            dc, wallet_header.keys_info_merkle_root, wallet_header.n_keys,
+            0,  // only one key
+            key_info_str, sizeof(key_info_str));
         if (key_info_len < 0) {
             SEND_SW(dc, SW_INCORRECT_DATA);
             return;
@@ -166,38 +161,39 @@ void handler_get_wallet_address(dispatcher_context_t *dc, uint8_t protocol_versi
         buffer_t key_info_buffer = buffer_create(key_info_str, key_info_len);
 
         policy_map_key_info_t key_info;
-        if (parse_policy_map_key_info(&key_info_buffer, &key_info, wallet_header.version) == -1) {
+        if (parse_policy_map_key_info(&key_info_buffer, &key_info,
+                                      wallet_header.version) == -1) {
             SEND_SW(dc, SW_INCORRECT_DATA);
             return;
         }
 
-        if (read_u32_be(key_info.master_key_fingerprint, 0) != master_key_fingerprint) {
+        if (read_u32_be(key_info.master_key_fingerprint, 0) !=
+            master_key_fingerprint) {
             SEND_SW(dc, SW_INCORRECT_DATA);
             return;
         }
 
         // generate pubkey and check if it matches
         char pubkey_derived[MAX_SERIALIZED_PUBKEY_LENGTH + 1];
-        int serialized_pubkey_len =
-            get_serialized_extended_pubkey_at_path(key_info.master_key_derivation,
-                                                   key_info.master_key_derivation_len,
-                                                   BIP32_PUBKEY_VERSION,
-                                                   pubkey_derived,
-                                                   NULL);
+        int serialized_pubkey_len = get_serialized_extended_pubkey_at_path(
+            key_info.master_key_derivation, key_info.master_key_derivation_len,
+            BIP32_PUBKEY_VERSION, pubkey_derived, NULL);
         if (serialized_pubkey_len == -1) {
             PRINTF("Failed to derive pubkey\n");
             SEND_SW(dc, SW_BAD_STATE);
             return;
         }
 
-        if (strncmp(key_info.ext_pubkey, pubkey_derived, MAX_SERIALIZED_PUBKEY_LENGTH) != 0) {
+        if (strncmp(key_info.ext_pubkey, pubkey_derived,
+                    MAX_SERIALIZED_PUBKEY_LENGTH) != 0) {
             SEND_SW(dc, SW_INCORRECT_DATA);
             return;
         }
 
         // check if derivation path is indeed standard
 
-        // Based on the address type, we set the expected bip44 purpose for this canonical wallet
+        // Based on the address type, we set the expected bip44 purpose for this
+        // canonical wallet
         int bip44_purpose = get_bip44_purpose(address_type);
 
         if (key_info.master_key_derivation_len != 3) {
@@ -214,7 +210,8 @@ void handler_get_wallet_address(dispatcher_context_t *dc, uint8_t protocol_versi
         bip32_path[3] = is_change ? 1 : 0;
         bip32_path[4] = address_index;
 
-        if (!is_address_path_standard(bip32_path, 5, bip44_purpose, coin_types, 2, -1)) {
+        if (!is_address_path_standard(bip32_path, 5, bip44_purpose, coin_types,
+                                      2, -1)) {
             SEND_SW(dc, SW_INCORRECT_DATA);
             return;
         }
@@ -255,13 +252,13 @@ void handler_get_wallet_address(dispatcher_context_t *dc, uint8_t protocol_versi
         uint8_t script[MAX_PREVOUT_SCRIPTPUBKEY_LEN];
 
         int script_len = get_wallet_script(
-            dc,
-            &wallet_policy_map.parsed,
-            &(wallet_derivation_info_t){.wallet_version = wallet_header.version,
-                                        .keys_merkle_root = wallet_header.keys_info_merkle_root,
-                                        .n_keys = wallet_header.n_keys,
-                                        .change = is_change,
-                                        .address_index = address_index},
+            dc, &wallet_policy_map.parsed,
+            &(wallet_derivation_info_t){
+                .wallet_version = wallet_header.version,
+                .keys_merkle_root = wallet_header.keys_info_merkle_root,
+                .n_keys = wallet_header.n_keys,
+                .change = is_change,
+                .address_index = address_index},
             script);
         if (script_len < 0) {
             PRINTF("Couldn't produce wallet script\n");
@@ -272,7 +269,8 @@ void handler_get_wallet_address(dispatcher_context_t *dc, uint8_t protocol_versi
         int address_len;
         char address[MAX_ADDRESS_LENGTH_STR + 1];  // null-terminated string
 
-        address_len = get_script_address(script, script_len, address, sizeof(address));
+        address_len =
+            get_script_address(script, script_len, address, sizeof(address));
 
         if (address_len < 0) {
             PRINTF("Could not produce address\n");
@@ -281,9 +279,9 @@ void handler_get_wallet_address(dispatcher_context_t *dc, uint8_t protocol_versi
         }
 
         if (display_address != 0) {
-            if (!ui_display_wallet_address(dc,
-                                           is_wallet_canonical ? NULL : wallet_header.name,
-                                           address)) {
+            if (!ui_display_wallet_address(
+                    dc, is_wallet_canonical ? NULL : wallet_header.name,
+                    address)) {
                 SEND_SW(dc, SW_DENY);
                 return;
             }

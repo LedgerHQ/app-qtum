@@ -1,16 +1,19 @@
+#include "./display_utils.h"
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
-#include "./display_utils.h"
-
-// Division and modulus operators over uint64_t causes the inclusion of the __udivmoddi4 and other
-// library functions that occupy more than 400 bytes. Since performance is not critical and division
-// by 10 is sufficient, we avoid it with a binary search instead.
+// Division and modulus operators over uint64_t causes the inclusion of the
+// __udivmoddi4 and other library functions that occupy more than 400 bytes.
+// Since performance is not critical and division by 10 is sufficient, we avoid
+// it with a binary search instead.
 static uint64_t div10(uint64_t n) {
-    if (n < 10) return 0;  // special case needed to make sure that n - 10 is safe
+    if (n < 10)
+        return 0;  // special case needed to make sure that n - 10 is safe
 
-    // Since low, mid and high are always <= UINT64_MAX / 10, there is no risk of overflow
+    // Since low, mid and high are always <= UINT64_MAX / 10, there is no risk
+    // of overflow
     uint64_t low = 0;
     uint64_t high = UINT64_MAX / 10;
 
@@ -48,23 +51,22 @@ static size_t n_digits(uint64_t number) {
     return count;
 }
 
-void format_sats_amount(const char *coin_name,
-                        uint64_t amount,
+void format_sats_amount(const char* coin_name, uint64_t amount,
                         char out[static MAX_AMOUNT_LENGTH + 1]) {
     size_t coin_name_len = strlen(coin_name);
     strncpy(out, coin_name, MAX_AMOUNT_LENGTH + 1);
     out[coin_name_len] = ' ';
 
-    char *amount_str = out + coin_name_len + 1;
+    char* amount_str = out + coin_name_len + 1;
 
     uint64_t integral_part = div100000000(amount);
-    uint32_t fractional_part = (uint32_t) (amount - integral_part * 100000000);
+    uint32_t fractional_part = (uint32_t)(amount - integral_part * 100000000);
 
     // format the integral part, starting from the least significant digit
     size_t integral_part_digit_count = n_digits(integral_part);
     for (unsigned int i = 0; i < integral_part_digit_count; i++) {
         uint64_t tmp_quotient = div10(integral_part);
-        char tmp_remainder = (char) (integral_part - 10 * tmp_quotient);
+        char tmp_remainder = (char)(integral_part - 10 * tmp_quotient);
         amount_str[integral_part_digit_count - 1 - i] = '0' + tmp_remainder;
         integral_part = tmp_quotient;
     }
@@ -72,9 +74,10 @@ void format_sats_amount(const char *coin_name,
     if (fractional_part == 0) {
         amount_str[integral_part_digit_count] = '\0';
     } else {
-        // format the fractional part (exactly 8 digits, possibly with trailing zeros)
+        // format the fractional part (exactly 8 digits, possibly with trailing
+        // zeros)
         amount_str[integral_part_digit_count] = '.';
-        char *fract_part_str = amount_str + integral_part_digit_count + 1;
+        char* fract_part_str = amount_str + integral_part_digit_count + 1;
         snprintf(fract_part_str, 8 + 1, "%08u", fractional_part);
 
         // drop trailing zeros

@@ -1,13 +1,11 @@
 #include <string.h>
 
 #include "../../kernel/sw.h"
+#include "../client_commands.h"
 #include "get_merkle_leaf_hash.h"
 
-#include "../client_commands.h"
-
-int call_get_merkle_leaf_index(dispatcher_context_t *dispatcher_context,
-                               size_t size,
-                               const uint8_t root[static 32],
+int call_get_merkle_leaf_index(dispatcher_context_t* dispatcher_context,
+                               size_t size, const uint8_t root[static 32],
                                const uint8_t leaf_hash[static 32]) {
     {  // free memory as soon as possible
         uint8_t request[1 + 32 + 32];
@@ -15,7 +13,8 @@ int call_get_merkle_leaf_index(dispatcher_context_t *dispatcher_context,
         memcpy(request + 1, root, 32);
         memcpy(request + 1 + 32, leaf_hash, 32);
 
-        SET_RESPONSE(dispatcher_context, request, sizeof(request), SW_INTERRUPTED_EXECUTION);
+        SET_RESPONSE(dispatcher_context, request, sizeof(request),
+                     SW_INTERRUPTED_EXECUTION);
     }
     if (dispatcher_context->process_interruption(dispatcher_context) < 0) {
         return -3;
@@ -39,8 +38,8 @@ int call_get_merkle_leaf_index(dispatcher_context_t *dispatcher_context,
 
     // Ask the host for the leaf hash with that index
     uint8_t returned_merkle_leaf_hash[32];
-    int res =
-        call_get_merkle_leaf_hash(dispatcher_context, root, size, index, returned_merkle_leaf_hash);
+    int res = call_get_merkle_leaf_hash(dispatcher_context, root, size, index,
+                                        returned_merkle_leaf_hash);
     if (res < 0) {
         return -4;
     }

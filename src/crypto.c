@@ -15,34 +15,32 @@
  *  limitations under the License.
  *****************************************************************************/
 
+#include "crypto.h"
+
+#include <stdbool.h>  // bool
 #include <stdint.h>   // uint*_t
 #include <string.h>   // memset, explicit_bzero
-#include <stdbool.h>  // bool
-
-#include "os.h"
-#include "cx.h"
-#include "cx_stubs.h"
-#include "cx_ecfp.h"
-#include "ox_ec.h"
-#include "cx_ram.h"
-#include "lcx_ripemd160.h"
-#include "cx_ripemd160.h"
-#include "lib_standard_app/crypto_helpers.h"
 
 #include "common/base58.h"
 #include "common/bip32.h"
 #include "common/format.h"
 #include "common/read.h"
 #include "common/write.h"
-
+#include "cx.h"
+#include "cx_ecfp.h"
+#include "cx_ram.h"
+#include "cx_ripemd160.h"
+#include "cx_stubs.h"
 #include "cxram_stash.h"
 #include "debug-helpers/debug.h"
-
-#include "crypto.h"
+#include "lcx_ripemd160.h"
+#include "lib_standard_app/crypto_helpers.h"
+#include "os.h"
+#include "ox_ec.h"
 
 /**
- * Generator for secp256k1, value 'g' defined in "Standards for Efficient Cryptography"
- * (SEC2) 2.7.1.
+ * Generator for secp256k1, value 'g' defined in "Standards for Efficient
+ * Cryptography" (SEC2) 2.7.1.
  */
 // clang-format off
 static const uint8_t secp256k1_generator[] = {
@@ -57,41 +55,48 @@ static const uint8_t secp256k1_generator[] = {
  * Modulo for secp256k1
  */
 static const uint8_t secp256k1_p[] = {
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xfc, 0x2f};
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xfc, 0x2f};
 
 /**
  * Curve order for secp256k1
  */
 static const uint8_t secp256k1_n[] = {
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfe,
-    0xba, 0xae, 0xdc, 0xe6, 0xaf, 0x48, 0xa0, 0x3b, 0xbf, 0xd2, 0x5e, 0x8c, 0xd0, 0x36, 0x41, 0x41};
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xfe, 0xba, 0xae, 0xdc, 0xe6, 0xaf, 0x48,
+    0xa0, 0x3b, 0xbf, 0xd2, 0x5e, 0x8c, 0xd0, 0x36, 0x41, 0x41};
 
 /**
  * (p + 1)/4, used to calculate square roots in secp256k1
  */
 static const uint8_t secp256k1_sqr_exponent[] = {
-    0x3f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xbf, 0xff, 0xff, 0x0c};
+    0x3f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xbf, 0xff, 0xff, 0x0c};
 
 /* BIP0341 tags for computing the tagged hashes when tweaking public keys */
-static const uint8_t BIP0341_taptweak_tag[] = {'T', 'a', 'p', 'T', 'w', 'e', 'a', 'k'};
-static const uint8_t BIP0341_tapbranch_tag[] = {'T', 'a', 'p', 'B', 'r', 'a', 'n', 'c', 'h'};
-static const uint8_t BIP0341_tapleaf_tag[] = {'T', 'a', 'p', 'L', 'e', 'a', 'f'};
+static const uint8_t BIP0341_taptweak_tag[] = {'T', 'a', 'p', 'T',
+                                               'w', 'e', 'a', 'k'};
+static const uint8_t BIP0341_tapbranch_tag[] = {'T', 'a', 'p', 'B', 'r',
+                                                'a', 'n', 'c', 'h'};
+static const uint8_t BIP0341_tapleaf_tag[] = {'T', 'a', 'p', 'L',
+                                              'e', 'a', 'f'};
 
 /**
- * Gets the point on the SECP256K1 that corresponds to kG, where G is the curve's generator point.
- * Returns -1 if point is Infinity or any error occurs; 0 otherwise.
+ * Gets the point on the SECP256K1 that corresponds to kG, where G is the
+ * curve's generator point. Returns -1 if point is Infinity or any error occurs;
+ * 0 otherwise.
  */
 static int secp256k1_point(const uint8_t k[static 32], uint8_t out[static 65]) {
     memcpy(out, secp256k1_generator, 65);
-    if (CX_OK != cx_ecfp_scalar_mult_no_throw(CX_CURVE_SECP256K1, out, k, 32)) return -1;
+    if (CX_OK != cx_ecfp_scalar_mult_no_throw(CX_CURVE_SECP256K1, out, k, 32))
+        return -1;
     return 0;
 }
 
-int bip32_CKDpub(const serialized_extended_pubkey_t *parent,
-                 uint32_t index,
-                 serialized_extended_pubkey_t *child) {
+int bip32_CKDpub(const serialized_extended_pubkey_t* parent, uint32_t index,
+                 serialized_extended_pubkey_t* child) {
     PRINT_STACK_POINTER();
 
     if (index >= BIP32_FIRST_HARDENED_CHILD) {
@@ -113,12 +118,14 @@ int bip32_CKDpub(const serialized_extended_pubkey_t *parent,
         cx_hmac_sha512(parent->chain_code, 32, tmp, sizeof(tmp), I, 64);
     }
 
-    uint8_t *I_L = &I[0];
-    uint8_t *I_R = &I[32];
+    uint8_t* I_L = &I[0];
+    uint8_t* I_R = &I[32];
 
-    // fail if I_L is not smaller than the group order n, but the probability is < 1/2^128
+    // fail if I_L is not smaller than the group order n, but the probability is
+    // < 1/2^128
     int diff;
-    if (CX_OK != cx_math_cmp_no_throw(I_L, secp256k1_n, 32, &diff) || diff >= 0) {
+    if (CX_OK != cx_math_cmp_no_throw(I_L, secp256k1_n, 32, &diff) ||
+        diff >= 0) {
         return -1;
     }
 
@@ -133,49 +140,54 @@ int bip32_CKDpub(const serialized_extended_pubkey_t *parent,
         crypto_get_uncompressed_pubkey(parent->compressed_pubkey, K_par);
 
         // add K_par
-        if (CX_OK !=
-            cx_ecfp_add_point_no_throw(CX_CURVE_SECP256K1, child_uncompressed_pubkey, P, K_par)) {
-            return -1;  // the point at infinity is not a valid child pubkey (should never happen in
-                        // practice)
+        if (CX_OK != cx_ecfp_add_point_no_throw(CX_CURVE_SECP256K1,
+                                                child_uncompressed_pubkey, P,
+                                                K_par)) {
+            return -1;  // the point at infinity is not a valid child pubkey
+                        // (should never happen in practice)
         }
     }
 
     memmove(child->version, parent->version, 4);
     child->depth = parent->depth + 1;
 
-    uint32_t parent_fingerprint = crypto_get_key_fingerprint(parent->compressed_pubkey);
+    uint32_t parent_fingerprint =
+        crypto_get_key_fingerprint(parent->compressed_pubkey);
 
     write_u32_be(child->parent_fingerprint, 0, parent_fingerprint);
     write_u32_be(child->child_number, 0, index);
 
     memcpy(child->chain_code, I_R, 32);
 
-    crypto_get_compressed_pubkey(child_uncompressed_pubkey, child->compressed_pubkey);
+    crypto_get_compressed_pubkey(child_uncompressed_pubkey,
+                                 child->compressed_pubkey);
 
     return 0;
 }
 
 #ifndef _NR_cx_hash_ripemd160
 /** Missing in some SDKs, we implement it using the cxram section if needed. */
-static size_t cx_hash_ripemd160(const uint8_t *in, size_t in_len, uint8_t *out, size_t out_len) {
+static size_t cx_hash_ripemd160(const uint8_t* in, size_t in_len, uint8_t* out,
+                                size_t out_len) {
     PRINT_STACK_POINTER();
 
     if (out_len < CX_RIPEMD160_SIZE) {
         return 0;
     }
-    cx_ripemd160_init_no_throw((cx_ripemd160_t *) &G_cx);
-    cx_ripemd160_update((cx_ripemd160_t *) &G_cx, in, in_len);
-    cx_ripemd160_final((cx_ripemd160_t *) &G_cx, out);
-    explicit_bzero((cx_ripemd160_t *) &G_cx, sizeof(cx_sha256_t));
+    cx_ripemd160_init_no_throw((cx_ripemd160_t*)&G_cx);
+    cx_ripemd160_update((cx_ripemd160_t*)&G_cx, in, in_len);
+    cx_ripemd160_final((cx_ripemd160_t*)&G_cx, out);
+    explicit_bzero((cx_ripemd160_t*)&G_cx, sizeof(cx_sha256_t));
     return CX_RIPEMD160_SIZE;
 }
 #endif  // _NR_cx_hash_ripemd160
 
-void crypto_ripemd160(const uint8_t *in, uint16_t inlen, uint8_t out[static 20]) {
+void crypto_ripemd160(const uint8_t* in, uint16_t inlen,
+                      uint8_t out[static 20]) {
     cx_hash_ripemd160(in, inlen, out, 20);
 }
 
-void crypto_hash160(const uint8_t *in, uint16_t inlen, uint8_t out[static 20]) {
+void crypto_hash160(const uint8_t* in, uint16_t inlen, uint8_t out[static 20]) {
     PRINT_STACK_POINTER();
 
     uint8_t buffer[32];
@@ -217,10 +229,12 @@ int crypto_get_uncompressed_pubkey(const uint8_t compressed_key[static 33],
     scalar[31] = 7;
     if (CX_OK != cx_math_addm_no_throw(y, y, scalar, secp256k1_p, 32))
         return -1;  // tmp = x^3 + 7 (mod p)
-    if (CX_OK != cx_math_powm_no_throw(y, y, secp256k1_sqr_exponent, 32, secp256k1_p, 32))
+    if (CX_OK != cx_math_powm_no_throw(y, y, secp256k1_sqr_exponent, 32,
+                                       secp256k1_p, 32))
         return -1;  // tmp = sqrt(x^3 + 7) (mod p)
 
-    // if the prefix and y don't have the same parity, take the opposite root (mod p)
+    // if the prefix and y don't have the same parity, take the opposite root
+    // (mod p)
     if (((prefix ^ y[31]) & 1) != 0) {
         if (CX_OK != cx_math_sub_no_throw(y, secp256k1_p, y, 32)) return -1;
     }
@@ -230,7 +244,8 @@ int crypto_get_uncompressed_pubkey(const uint8_t compressed_key[static 33],
 }
 
 // TODO: missing unit tests
-void crypto_get_checksum(const uint8_t *in, uint16_t in_len, uint8_t out[static 4]) {
+void crypto_get_checksum(const uint8_t* in, uint16_t in_len,
+                         uint8_t out[static 4]) {
     uint8_t buffer[32];
     cx_hash_sha256(in, in_len, buffer, 32);
     cx_hash_sha256(buffer, 32, buffer, 32);
@@ -243,11 +258,8 @@ bool crypto_get_compressed_pubkey_at_path(const uint32_t bip32_path[],
                                           uint8_t chain_code[]) {
     uint8_t raw_public_key[65];
 
-    if (bip32_derive_get_pubkey_256(CX_CURVE_256K1,
-                                    bip32_path,
-                                    bip32_path_len,
-                                    raw_public_key,
-                                    chain_code,
+    if (bip32_derive_get_pubkey_256(CX_CURVE_256K1, bip32_path, bip32_path_len,
+                                    raw_public_key, chain_code,
                                     CX_SHA512) != CX_OK) {
         return false;
     }
@@ -266,14 +278,15 @@ uint32_t crypto_get_key_fingerprint(const uint8_t pub_key[static 33]) {
     return read_u32_be(key_rip, 0);
 }
 
-void crypto_get_master_fingerprint_path(bip32_path_t *path) {
+void crypto_get_master_fingerprint_path(bip32_path_t* path) {
     path->length = 0;
     if (BIP32_PUBKEY_VERSION == BIP32_PUBKEY_VERSION_MAINNET) {  // mainnet
         // Mainnet fingerprint bip32 path m/44'/88' in HWI
         path->path[0] = 0x8000002c;
         path->path[1] = 0x80000058;
         path->length = 2;
-    } else if (BIP32_PUBKEY_VERSION == BIP32_PUBKEY_VERSION_TESTNET) {  // testnet
+    } else if (BIP32_PUBKEY_VERSION ==
+               BIP32_PUBKEY_VERSION_TESTNET) {  // testnet
         // Testnet fingerprint bip32 path m/0'/45342' in HWI
         path->path[0] = 0x80000000;
         path->path[1] = 0x8000b11e;
@@ -285,27 +298,25 @@ uint32_t crypto_get_master_key_fingerprint() {
     uint8_t master_pub_key[33];
     bip32_path_t path;
     crypto_get_master_fingerprint_path(&path);
-    crypto_get_compressed_pubkey_at_path(path.path, path.length, master_pub_key, NULL);
+    crypto_get_compressed_pubkey_at_path(path.path, path.length, master_pub_key,
+                                         NULL);
     return crypto_get_key_fingerprint(master_pub_key);
 }
 
-bool crypto_derive_symmetric_key(const char *label, size_t label_len, uint8_t key[static 32]) {
+bool crypto_derive_symmetric_key(const char* label, size_t label_len,
+                                 uint8_t key[static 32]) {
     // TODO: is there a better way?
-    //       The label is a byte string in SLIP-0021, but os_derive_bip32_with_seed_no_throw
-    //       accesses the `path` argument as an array of uint32_t, causing a device freeze if memory
-    //       is not aligned.
+    //       The label is a byte string in SLIP-0021, but
+    //       os_derive_bip32_with_seed_no_throw accesses the `path` argument as
+    //       an array of uint32_t, causing a device freeze if memory is not
+    //       aligned.
     uint8_t label_copy[32] __attribute__((aligned(4)));
 
     memcpy(label_copy, label, label_len);
 
-    if (os_derive_bip32_with_seed_no_throw(HDW_SLIP21,
-                                           CX_CURVE_SECP256K1,
-                                           (uint32_t *) label_copy,
-                                           label_len,
-                                           key,
-                                           NULL,
-                                           NULL,
-                                           0) != CX_OK) {
+    if (os_derive_bip32_with_seed_no_throw(HDW_SLIP21, CX_CURVE_SECP256K1,
+                                           (uint32_t*)label_copy, label_len,
+                                           key, NULL, NULL, 0) != CX_OK) {
         return false;
     }
 
@@ -313,13 +324,14 @@ bool crypto_derive_symmetric_key(const char *label, size_t label_len, uint8_t ke
 }
 
 // TODO: Split serialization from key derivation?
-//       It might be difficult to have a clean API without wasting memory, as the checksum
-//       needs to be concatenated to the data before base58 serialization.
-int get_serialized_extended_pubkey_at_path(const uint32_t bip32_path[],
-                                           uint8_t bip32_path_len,
-                                           uint32_t bip32_pubkey_version,
-                                           char out_xpub[static MAX_SERIALIZED_PUBKEY_LENGTH + 1],
-                                           serialized_extended_pubkey_t *out_pubkey) {
+//       It might be difficult to have a clean API without wasting memory, as
+//       the checksum needs to be concatenated to the data before base58
+//       serialization.
+int get_serialized_extended_pubkey_at_path(
+    const uint32_t bip32_path[], uint8_t bip32_path_len,
+    uint32_t bip32_pubkey_version,
+    char out_xpub[static MAX_SERIALIZED_PUBKEY_LENGTH + 1],
+    serialized_extended_pubkey_t* out_pubkey) {
     // find parent key's fingerprint and child number
     uint32_t parent_fingerprint = 0;
     uint32_t child_number = 0;
@@ -328,7 +340,8 @@ int get_serialized_extended_pubkey_at_path(const uint32_t bip32_path[],
         // for the response, in order to save memory
 
         uint8_t parent_pubkey[33];
-        crypto_get_compressed_pubkey_at_path(bip32_path, bip32_path_len - 1, parent_pubkey, NULL);
+        crypto_get_compressed_pubkey_at_path(bip32_path, bip32_path_len - 1,
+                                             parent_pubkey, NULL);
 
         parent_fingerprint = crypto_get_key_fingerprint(parent_pubkey);
         child_number = bip32_path[bip32_path_len - 1];
@@ -339,27 +352,26 @@ int get_serialized_extended_pubkey_at_path(const uint32_t bip32_path[],
         uint8_t checksum[4];
     } ext_pubkey_check;  // extended pubkey and checksum
 
-    serialized_extended_pubkey_t *ext_pubkey = &ext_pubkey_check.ext_pubkey;
+    serialized_extended_pubkey_t* ext_pubkey = &ext_pubkey_check.ext_pubkey;
 
     write_u32_be(ext_pubkey->version, 0, bip32_pubkey_version);
     ext_pubkey->depth = bip32_path_len;
     write_u32_be(ext_pubkey->parent_fingerprint, 0, parent_fingerprint);
     write_u32_be(ext_pubkey->child_number, 0, child_number);
 
-    crypto_get_compressed_pubkey_at_path(bip32_path,
-                                         bip32_path_len,
+    crypto_get_compressed_pubkey_at_path(bip32_path, bip32_path_len,
                                          ext_pubkey->compressed_pubkey,
                                          ext_pubkey->chain_code);
-    crypto_get_checksum((uint8_t *) ext_pubkey, 78, ext_pubkey_check.checksum);
+    crypto_get_checksum((uint8_t*)ext_pubkey, 78, ext_pubkey_check.checksum);
 
     if (out_pubkey != NULL) {
-        memcpy(out_pubkey, &ext_pubkey_check.ext_pubkey, sizeof(ext_pubkey_check.ext_pubkey));
+        memcpy(out_pubkey, &ext_pubkey_check.ext_pubkey,
+               sizeof(ext_pubkey_check.ext_pubkey));
     }
 
-    int serialized_pubkey_len = base58_encode((uint8_t *) &ext_pubkey_check,
-                                              78 + 4,
-                                              out_xpub,
-                                              MAX_SERIALIZED_PUBKEY_LENGTH);
+    int serialized_pubkey_len =
+        base58_encode((uint8_t*)&ext_pubkey_check, 78 + 4, out_xpub,
+                      MAX_SERIALIZED_PUBKEY_LENGTH);
 
     if (serialized_pubkey_len > 0) {
         out_xpub[serialized_pubkey_len] = '\0';
@@ -367,15 +379,16 @@ int get_serialized_extended_pubkey_at_path(const uint32_t bip32_path[],
     return serialized_pubkey_len;
 }
 
-int base58_encode_address(const uint8_t in[20], uint32_t version, char *out, size_t out_len) {
+int base58_encode_address(const uint8_t in[20], uint32_t version, char* out,
+                          size_t out_len) {
     uint8_t tmp[4 + 20 + 4];  // version + max_in_len + checksum
 
     uint8_t version_len;
     if (version < 256) {
-        tmp[0] = (uint8_t) version;
+        tmp[0] = (uint8_t)version;
         version_len = 1;
     } else if (version < 65536) {
-        write_u16_be(tmp, 0, (uint16_t) version);
+        write_u16_be(tmp, 0, (uint16_t)version);
         version_len = 2;
     } else {
         write_u32_be(tmp, 0, version);
@@ -390,9 +403,9 @@ int base58_encode_address(const uint8_t in[20], uint32_t version, char *out, siz
 int crypto_ecdsa_sign_sha256_hash_with_key(const uint32_t bip32_path[],
                                            uint8_t bip32_path_len,
                                            const uint8_t hash[static 32],
-                                           uint8_t *pubkey,
+                                           uint8_t* pubkey,
                                            uint8_t out[static MAX_DER_SIG_LEN],
-                                           uint32_t *info) {
+                                           uint32_t* info) {
     cx_ecfp_private_key_t private_key = {0};
     cx_ecfp_public_key_t public_key;
     uint32_t info_internal = 0;
@@ -400,29 +413,21 @@ int crypto_ecdsa_sign_sha256_hash_with_key(const uint32_t bip32_path[],
     size_t sig_len = MAX_DER_SIG_LEN;
     bool error = true;
 
-    if (bip32_derive_init_privkey_256(CX_CURVE_256K1,
-                                      bip32_path,
-                                      bip32_path_len,
-                                      &private_key,
+    if (bip32_derive_init_privkey_256(CX_CURVE_256K1, bip32_path,
+                                      bip32_path_len, &private_key,
                                       NULL) != CX_OK) {
         goto end;
     }
 
-    if (cx_ecdsa_sign_no_throw(&private_key,
-                               CX_RND_RFC6979,
-                               CX_SHA256,
-                               hash,
-                               32,
-                               out,
-                               &sig_len,
-                               &info_internal) != CX_OK) {
+    if (cx_ecdsa_sign_no_throw(&private_key, CX_RND_RFC6979, CX_SHA256, hash,
+                               32, out, &sig_len, &info_internal) != CX_OK) {
         goto end;
     }
 
     if (pubkey != NULL) {
         // Generate associated pubkey
-        if (cx_ecfp_generate_pair_no_throw(CX_CURVE_256K1, &public_key, &private_key, true) !=
-            CX_OK) {
+        if (cx_ecfp_generate_pair_no_throw(CX_CURVE_256K1, &public_key,
+                                           &private_key, true) != CX_OK) {
             goto end;
         }
 
@@ -449,7 +454,8 @@ end:
     return sig_len;
 }
 
-void crypto_tr_tagged_hash_init(cx_sha256_t *hash_context, const uint8_t *tag, uint16_t tag_len) {
+void crypto_tr_tagged_hash_init(cx_sha256_t* hash_context, const uint8_t* tag,
+                                uint16_t tag_len) {
     // we recycle the input to save memory (will reinit later)
     cx_sha256_init(hash_context);
 
@@ -462,30 +468,36 @@ void crypto_tr_tagged_hash_init(cx_sha256_t *hash_context, const uint8_t *tag, u
     crypto_hash_update(&hash_context->header, hashtag, sizeof(hashtag));
 }
 
-void crypto_tr_tapleaf_hash_init(cx_sha256_t *hash_context) {
-    crypto_tr_tagged_hash_init(hash_context, BIP0341_tapleaf_tag, sizeof(BIP0341_tapleaf_tag));
+void crypto_tr_tapleaf_hash_init(cx_sha256_t* hash_context) {
+    crypto_tr_tagged_hash_init(hash_context, BIP0341_tapleaf_tag,
+                               sizeof(BIP0341_tapleaf_tag));
 }
 
-static int crypto_tr_lift_x(const uint8_t x[static 32], uint8_t out[static 65]) {
+static int crypto_tr_lift_x(const uint8_t x[static 32],
+                            uint8_t out[static 65]) {
     // save memory by reusing output buffer for intermediate results
-    uint8_t *y = out + 1 + 32;
-    // we use the memory for the x-coordinate of the output as a temporary variable
-    uint8_t *c = out + 1;
+    uint8_t* y = out + 1 + 32;
+    // we use the memory for the x-coordinate of the output as a temporary
+    // variable
+    uint8_t* c = out + 1;
 
     uint8_t e = 3;
-    if (CX_OK != cx_math_powm_no_throw(c, x, &e, 1, secp256k1_p, 32)) return -1;  // c = x^3 (mod p)
+    if (CX_OK != cx_math_powm_no_throw(c, x, &e, 1, secp256k1_p, 32))
+        return -1;  // c = x^3 (mod p)
     uint8_t scalar[32] = {0};
     scalar[31] = 7;
     if (CX_OK != cx_math_addm_no_throw(c, c, scalar, secp256k1_p, 32))
         return -1;  // c = x^3 + 7 (mod p)
 
-    if (CX_OK != cx_math_powm_no_throw(y, c, secp256k1_sqr_exponent, 32, secp256k1_p, 32))
+    if (CX_OK != cx_math_powm_no_throw(y, c, secp256k1_sqr_exponent, 32,
+                                       secp256k1_p, 32))
         return -1;  // y = sqrt(x^3 + 7) (mod p)
 
     // sanity check: fail if y * y % p != x^3 + 7
     uint8_t y_2[32];
     e = 2;
-    if (CX_OK != cx_math_powm_no_throw(y_2, y, &e, 1, secp256k1_p, 32)) return -1;  // y^2 (mod p)
+    if (CX_OK != cx_math_powm_no_throw(y_2, y, &e, 1, secp256k1_p, 32))
+        return -1;  // y^2 (mod p)
     int diff;
     if (CX_OK != cx_math_cmp_no_throw(y_2, c, 32, &diff) || diff != 0) {
         return -1;
@@ -493,7 +505,8 @@ static int crypto_tr_lift_x(const uint8_t x[static 32], uint8_t out[static 65]) 
 
     if (y[31] & 1) {
         // y must be even: take the negation
-        if (CX_OK != cx_math_sub_no_throw(out + 1 + 32, secp256k1_p, y, 32)) return -1;
+        if (CX_OK != cx_math_sub_no_throw(out + 1 + 32, secp256k1_p, y, 32))
+            return -1;
     }
 
     // add the 0x04 prefix; copy x verbatim
@@ -504,22 +517,21 @@ static int crypto_tr_lift_x(const uint8_t x[static 32], uint8_t out[static 65]) 
 }
 
 // Computes a tagged hash according to BIP-340.
-// If data2_len > 0, then data2 must be non-NULL and the `data` and `data2` arrays are concatenated.
-// Somewhat weird signature, but this helps to optimize stack usage.
-static void __attribute__((noinline)) crypto_tr_tagged_hash(const uint8_t *tag,
-                                                            uint16_t tag_len,
-                                                            const uint8_t *data,
-                                                            uint16_t data_len,
-                                                            const uint8_t *data2,
-                                                            uint16_t data2_len,
-                                                            uint8_t out[static 32]) {
+// If data2_len > 0, then data2 must be non-NULL and the `data` and `data2`
+// arrays are concatenated. Somewhat weird signature, but this helps to optimize
+// stack usage.
+static void __attribute__((noinline)) crypto_tr_tagged_hash(
+    const uint8_t* tag, uint16_t tag_len, const uint8_t* data,
+    uint16_t data_len, const uint8_t* data2, uint16_t data2_len,
+    uint8_t out[static 32]) {
     cx_sha256_t hash_context;
     cx_sha256_init(&hash_context);
 
     crypto_tr_tagged_hash_init(&hash_context, tag, tag_len);
 
     crypto_hash_update(&hash_context.header, data, data_len);
-    if (data2_len > 0) crypto_hash_update(&hash_context.header, data2, data2_len);
+    if (data2_len > 0)
+        crypto_hash_update(&hash_context.header, data2, data2_len);
     crypto_hash_digest(&hash_context.header, out, 32);
 }
 
@@ -528,38 +540,23 @@ void crypto_tr_combine_taptree_hashes(const uint8_t left_h[static 32],
                                       uint8_t out[static 32]) {
     if (memcmp(left_h, right_h, 32) < 0) {
         crypto_tr_tagged_hash(BIP0341_tapbranch_tag,
-                              sizeof(BIP0341_tapbranch_tag),
-                              left_h,
-                              32,
-                              right_h,
-                              32,
-                              out);
+                              sizeof(BIP0341_tapbranch_tag), left_h, 32,
+                              right_h, 32, out);
     } else {
         crypto_tr_tagged_hash(BIP0341_tapbranch_tag,
-                              sizeof(BIP0341_tapbranch_tag),
-                              right_h,
-                              32,
-                              left_h,
-                              32,
-                              out);
+                              sizeof(BIP0341_tapbranch_tag), right_h, 32,
+                              left_h, 32, out);
     }
 }
 
 // Like taproot_tweak_pubkey of BIP0341
-int crypto_tr_tweak_pubkey(const uint8_t pubkey[static 32],
-                           const uint8_t *h,
-                           size_t h_len,
-                           uint8_t *y_parity,
+int crypto_tr_tweak_pubkey(const uint8_t pubkey[static 32], const uint8_t* h,
+                           size_t h_len, uint8_t* y_parity,
                            uint8_t out[static 32]) {
     uint8_t t[32];
 
-    crypto_tr_tagged_hash(BIP0341_taptweak_tag,
-                          sizeof(BIP0341_taptweak_tag),
-                          pubkey,
-                          32,
-                          h,
-                          h_len,
-                          t);
+    crypto_tr_tagged_hash(BIP0341_taptweak_tag, sizeof(BIP0341_taptweak_tag),
+                          pubkey, 32, h, h_len, t);
 
     // fail if t is not smaller than the curve order
     int diff;
@@ -579,7 +576,8 @@ int crypto_tr_tweak_pubkey(const uint8_t pubkey[static 32],
         return -1;
     }
 
-    if (CX_OK != cx_ecfp_add_point_no_throw(CX_CURVE_SECP256K1, Q, Q, lifted_pubkey)) {
+    if (CX_OK !=
+        cx_ecfp_add_point_no_throw(CX_CURVE_SECP256K1, Q, Q, lifted_pubkey)) {
         return -1;  // error, or point at Infinity
     }
 
@@ -589,10 +587,8 @@ int crypto_tr_tweak_pubkey(const uint8_t pubkey[static 32],
 }
 
 // Like taproot_tweak_seckey of BIP0341
-int crypto_tr_tweak_seckey(const uint8_t seckey[static 32],
-                           const uint8_t *h,
-                           size_t h_len,
-                           uint8_t out[static 32]) {
+int crypto_tr_tweak_seckey(const uint8_t seckey[static 32], const uint8_t* h,
+                           size_t h_len, uint8_t out[static 32]) {
     uint8_t P[65];
 
     int ret = -1;
@@ -610,14 +606,13 @@ int crypto_tr_tweak_seckey(const uint8_t seckey[static 32],
         crypto_tr_tagged_hash(BIP0341_taptweak_tag,
                               sizeof(BIP0341_taptweak_tag),
                               &P[1],  // P[1:33] is x(P)
-                              32,
-                              h,
-                              h_len,
-                              t);
+                              32, h, h_len, t);
 
         // fail if t is not smaller than the curve order
         int diff;
-        if (CX_OK != cx_math_cmp_no_throw(t, secp256k1_n, 32, &diff) || diff >= 0) break;
+        if (CX_OK != cx_math_cmp_no_throw(t, secp256k1_n, 32, &diff) ||
+            diff >= 0)
+            break;
 
         if (CX_OK != cx_math_addm_no_throw(out, out, t, secp256k1_n, 32)) break;
 

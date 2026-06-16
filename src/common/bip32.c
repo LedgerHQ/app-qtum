@@ -14,13 +14,14 @@
  *  limitations under the License.
  *****************************************************************************/
 
-#include <stdio.h>    // snprintf
-#include <string.h>   // memset, strlen
+#include "bip32.h"
+
+#include <stdbool.h>  // bool
 #include <stddef.h>   // size_t
 #include <stdint.h>   // uint*_t
-#include <stdbool.h>  // bool
+#include <stdio.h>    // snprintf
+#include <string.h>   // memset, strlen
 
-#include "bip32.h"
 #include "base58.h"
 #include "read.h"
 #include "write.h"
@@ -28,7 +29,8 @@
 // shortcut for convenience
 #define H BIP32_FIRST_HARDENED_CHILD
 
-bool bip32_path_read(const uint8_t *in, size_t in_len, uint32_t *out, size_t out_len) {
+bool bip32_path_read(const uint8_t* in, size_t in_len, uint32_t* out,
+                     size_t out_len) {
     if (out_len > MAX_BIP32_PATH_STEPS) {
         return false;
     }
@@ -46,10 +48,8 @@ bool bip32_path_read(const uint8_t *in, size_t in_len, uint32_t *out, size_t out
     return true;
 }
 
-bool bip32_path_format(const uint32_t *bip32_path,
-                       size_t bip32_path_len,
-                       char *out,
-                       size_t out_len) {
+bool bip32_path_format(const uint32_t* bip32_path, size_t bip32_path_len,
+                       char* out, size_t out_len) {
     if (bip32_path_len > MAX_BIP32_PATH_STEPS || out_len < 1) {
         return false;
     }
@@ -62,7 +62,8 @@ bool bip32_path_format(const uint32_t *bip32_path,
     for (uint16_t i = 0; i < bip32_path_len; i++) {
         size_t written;
 
-        snprintf(out + offset, out_len - offset, "%d", bip32_path[i] & 0x7FFFFFFFu);
+        snprintf(out + offset, out_len - offset, "%d",
+                 bip32_path[i] & 0x7FFFFFFFu);
         written = strlen(out + offset);
         if (written == 0 || written >= out_len - offset) {
             memset(out, 0, out_len);
@@ -94,8 +95,7 @@ bool bip32_path_format(const uint32_t *bip32_path,
     return true;
 }
 
-bool is_pubkey_path_standard(const uint32_t *bip32_path,
-                             size_t bip32_path_len,
+bool is_pubkey_path_standard(const uint32_t* bip32_path, size_t bip32_path_len,
                              uint32_t expected_purpose,
                              const uint32_t expected_coin_types[],
                              size_t expected_coin_types_len) {
@@ -135,15 +135,15 @@ bool is_pubkey_path_standard(const uint32_t *bip32_path,
 
     uint32_t account_number = bip32_path[BIP44_ACCOUNT_OFFSET];
     if ((account_number ^ H) >
-        MAX_BIP44_ACCOUNT_RECOMMENDED) {  // should be hardened, and not too large
+        MAX_BIP44_ACCOUNT_RECOMMENDED) {  // should be hardened, and not too
+                                          // large
         return false;
     }
 
     return true;
 }
 
-bool is_address_path_standard(const uint32_t *bip32_path,
-                              size_t bip32_path_len,
+bool is_address_path_standard(const uint32_t* bip32_path, size_t bip32_path_len,
                               uint32_t expected_purpose,
                               const uint32_t expected_coin_types[],
                               size_t expected_coin_types_len,
@@ -152,9 +152,7 @@ bool is_address_path_standard(const uint32_t *bip32_path,
         return false;
     }
 
-    if (!is_pubkey_path_standard(bip32_path,
-                                 3,
-                                 expected_purpose,
+    if (!is_pubkey_path_standard(bip32_path, 3, expected_purpose,
                                  expected_coin_types,
                                  expected_coin_types_len)) {
         return false;
@@ -167,7 +165,7 @@ bool is_address_path_standard(const uint32_t *bip32_path,
 
     if (expected_change == 0 || expected_change == 1) {
         // change should match the expected one
-        if (change != (uint32_t) expected_change) {
+        if (change != (uint32_t)expected_change) {
             return false;
         }
     } else if (expected_change != -1) {
@@ -176,7 +174,8 @@ bool is_address_path_standard(const uint32_t *bip32_path,
 
     uint32_t address_index = bip32_path[BIP44_ADDRESS_INDEX_OFFSET];
     if (address_index >
-        MAX_BIP44_ADDRESS_INDEX_RECOMMENDED) {  // should not be hardened, and not too large
+        MAX_BIP44_ADDRESS_INDEX_RECOMMENDED) {  // should not be hardened, and
+                                                // not too large
         return false;
     }
     return true;

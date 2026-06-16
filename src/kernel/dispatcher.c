@@ -15,16 +15,16 @@
  *  limitations under the License.
  *****************************************************************************/
 
-#include <stdint.h>
-#include <stdbool.h>
-
 #include "dispatcher.h"
+
+#include <stdbool.h>
+#include <stdint.h>
+
+#include "common/buffer.h"
 #include "constants.h"
 #include "globals.h"
 #include "io.h"
 #include "sw.h"
-
-#include "common/buffer.h"
 
 extern dispatcher_context_t G_dispatcher_context;
 
@@ -34,10 +34,11 @@ extern bool G_was_processing_screen_shown;
 struct {
     void (*termination_cb)(void);
     uint16_t sw;
-    bool had_ux_flow;  // set to true if there was any UX flow during the APDU processing
+    bool had_ux_flow;  // set to true if there was any UX flow during the APDU
+                       // processing
 } G_dispatcher_state;
 
-static void add_to_response(const void *rdata, size_t rdata_len) {
+static void add_to_response(const void* rdata, size_t rdata_len) {
     io_add_to_response(rdata, rdata_len);
 }
 
@@ -46,9 +47,7 @@ static void finalize_response(uint16_t sw) {
     io_finalize_response(sw);
 }
 
-static void send_response() {
-    io_confirm_response();
-}
+static void send_response() { io_confirm_response(); }
 
 static void set_ui_dirty() {
     // signals that the screen was changed while processing a command handler
@@ -56,7 +55,7 @@ static void set_ui_dirty() {
 }
 
 // TODO: refactor code in common with the main apdu loop
-static int process_interruption(dispatcher_context_t *dc) {
+static int process_interruption(dispatcher_context_t* dc) {
     command_t cmd;
     size_t input_len = 0;
 
@@ -72,10 +71,11 @@ static int process_interruption(dispatcher_context_t *dc) {
 
     G_output_len = 0;
 
-    // As we are not yet returning anything here, we communicate to io_exchange that the apdu
-    // is consumed. Otherwise the io_exchange call in main.c might receive an unexpected duplicate
-    // APDU that was already processed (this would happen if this is the latest interruption in the
-    // caller processor, for example if the dispatcher is paused because of a UX interaction).
+    // As we are not yet returning anything here, we communicate to io_exchange
+    // that the apdu is consumed. Otherwise the io_exchange call in main.c might
+    // receive an unexpected duplicate APDU that was already processed (this
+    // would happen if this is the latest interruption in the caller processor,
+    // for example if the dispatcher is paused because of a UX interaction).
     G_io_app.apdu_length = 0;
 
     G_dispatcher_state.sw = 0;
@@ -87,11 +87,7 @@ static int process_interruption(dispatcher_context_t *dc) {
     }
 
     PRINTF("=> CLA=%02X | INS=%02X | P1=%02X | P2=%02X | Lc=%02X | CData=",
-           cmd.cla,
-           cmd.ins,
-           cmd.p1,
-           cmd.p2,
-           cmd.lc);
+           cmd.cla, cmd.ins, cmd.p1, cmd.p2, cmd.lc);
     for (int i = 0; i < cmd.lc; i++) {
         PRINTF("%02X", cmd.data[i]);
     }
@@ -109,9 +105,8 @@ static int process_interruption(dispatcher_context_t *dc) {
 }
 
 void apdu_dispatcher(command_descriptor_t const cmd_descriptors[],
-                     int n_descriptors,
-                     void (*termination_cb)(void),
-                     const command_t *cmd) {
+                     int n_descriptors, void (*termination_cb)(void),
+                     const command_t* cmd) {
     G_dispatcher_state.had_ux_flow = false;
 
     G_dispatcher_state.termination_cb = termination_cb;
@@ -132,7 +127,8 @@ void apdu_dispatcher(command_descriptor_t const cmd_descriptors[],
 
     if (cmd->cla == CLA_FRAMEWORK && cmd->ins == INS_CONTINUE) {
         PRINTF("Unexpected INS_CONTINUE.\n");
-        io_send_sw(SW_BAD_STATE);  // received INS_CONTINUE, but no command was interrupted.
+        io_send_sw(SW_BAD_STATE);  // received INS_CONTINUE, but no command was
+                                   // interrupted.
         return;
     } else {
         bool cla_found = false, ins_found = false;
@@ -143,7 +139,7 @@ void apdu_dispatcher(command_descriptor_t const cmd_descriptors[],
             if (cmd_descriptors[i].ins != cmd->ins) continue;
             ins_found = true;
 
-            handler = (command_handler_t) PIC(cmd_descriptors[i].handler);
+            handler = (command_handler_t)PIC(cmd_descriptors[i].handler);
             break;
         }
 
@@ -169,10 +165,13 @@ void apdu_dispatcher(command_descriptor_t const cmd_descriptors[],
         io_send_sw(SW_BAD_STATE);
     }
 
-    // We call the termination callback if given, but only if the UX is "dirty", that is either
+    // We call the termination callback if given, but only if the UX is "dirty",
+    // that is either
     // - there was some kind of UX flow with user interaction;
-    // - background processing took long enough that the "Processing..." screen was shown.
-    bool is_ux_dirty = G_dispatcher_state.had_ux_flow || G_was_processing_screen_shown;
+    // - background processing took long enough that the "Processing..." screen
+    // was shown.
+    bool is_ux_dirty =
+        G_dispatcher_state.had_ux_flow || G_was_processing_screen_shown;
     if (G_dispatcher_state.termination_cb != NULL && is_ux_dirty) {
         G_dispatcher_state.termination_cb();
         G_was_processing_screen_shown = 0;

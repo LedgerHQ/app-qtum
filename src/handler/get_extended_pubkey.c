@@ -17,15 +17,15 @@
 
 #include <stdint.h>
 
-#include "kernel/io.h"
-#include "kernel/dispatcher.h"
-#include "kernel/sw.h"
-#include "../common/bip32.h"
 #include "../commands.h"
+#include "../common/bip32.h"
 #include "../constants.h"
 #include "../crypto.h"
 #include "../ui/display.h"
 #include "../ui/menu.h"
+#include "kernel/dispatcher.h"
+#include "kernel/io.h"
+#include "kernel/sw.h"
 
 #define H 0x80000000ul
 
@@ -33,16 +33,19 @@ static bool is_path_safe_for_pubkey_export(const uint32_t bip32_path[],
                                            size_t bip32_path_len,
                                            const uint32_t coin_types[],
                                            size_t coin_types_length) {
-    // Exception for Qtum Electrum: it historically used "m/44h/88h/4541509h/1112098098h"
-    // to derive encryption keys, so we whitelist it.
-    if (bip32_path_len == 4 && bip32_path[0] == (44 ^ H) && bip32_path[1] == (88 ^ H) &&
-        bip32_path[2] == (4541509 ^ H) && bip32_path[3] == (1112098098 ^ H)) {
+    // Exception for Qtum Electrum: it historically used
+    // "m/44h/88h/4541509h/1112098098h" to derive encryption keys, so we
+    // whitelist it.
+    if (bip32_path_len == 4 && bip32_path[0] == (44 ^ H) &&
+        bip32_path[1] == (88 ^ H) && bip32_path[2] == (4541509 ^ H) &&
+        bip32_path[3] == (1112098098 ^ H)) {
         return true;
-    } else if (bip32_path_len == 2 && bip32_path[0] == (0 ^ H) && bip32_path[1] == (45342 ^ H)) {
+    } else if (bip32_path_len == 2 && bip32_path[0] == (0 ^ H) &&
+               bip32_path[1] == (45342 ^ H)) {
         // Exception for "m/0h/45342h"
         return true;
-    } else if (bip32_path_len == 3 && bip32_path[0] == (20698 ^ H) && bip32_path[1] == (3053 ^ H) &&
-               bip32_path[2] == (12648430 ^ H)) {
+    } else if (bip32_path_len == 3 && bip32_path[0] == (20698 ^ H) &&
+               bip32_path[1] == (3053 ^ H) && bip32_path[2] == (12648430 ^ H)) {
         // Exception for "m/20698h/3053h/12648430h"
         return true;
     }
@@ -62,8 +65,9 @@ static bool is_path_safe_for_pubkey_export(const uint32_t bip32_path[],
             hardened_der_len = 3;
             break;
         case 45:
-            // BIP-45 prescribes simply length 1, but we instead support existing deployed
-            // use cases with path "m/45'/coin_type'/account' or "m/45'/coin_type'/account
+            // BIP-45 prescribes simply length 1, but we instead support
+            // existing deployed use cases with path "m/45'/coin_type'/account'
+            // or "m/45'/coin_type'/account
             if (bip32_path[2] < 0x80000000) {
                 hardened_der_len = 2;
             } else {
@@ -114,7 +118,8 @@ static bool is_path_safe_for_pubkey_export(const uint32_t bip32_path[],
         return false;
     }
 
-    // For BIP48, there is also the script type, with only standardized values 1' and 2'
+    // For BIP48, there is also the script type, with only standardized values
+    // 1' and 2'
     if (purpose == 48) {
         uint32_t script_type = bip32_path[3] & 0x7FFFFFFF;
         if (script_type != 1 && script_type != 2) {
@@ -125,8 +130,9 @@ static bool is_path_safe_for_pubkey_export(const uint32_t bip32_path[],
     return true;
 }
 
-void handler_get_extended_pubkey(dispatcher_context_t *dc, uint8_t protocol_version) {
-    (void) protocol_version;
+void handler_get_extended_pubkey(dispatcher_context_t* dc,
+                                 uint8_t protocol_version) {
+    (void)protocol_version;
 
     LOG_PROCESSOR(__FILE__, __LINE__, __func__);
 
@@ -156,7 +162,8 @@ void handler_get_extended_pubkey(dispatcher_context_t *dc, uint8_t protocol_vers
     }
 
     uint32_t coin_types[2] = {BIP44_COIN_TYPE, BIP44_COIN_TYPE_2};
-    bool is_safe = is_path_safe_for_pubkey_export(bip32_path, bip32_path_len, coin_types, 2);
+    bool is_safe = is_path_safe_for_pubkey_export(bip32_path, bip32_path_len,
+                                                  coin_types, 2);
 
     if (!is_safe && !display) {
         SEND_SW(dc, SW_NOT_SUPPORTED);
@@ -165,11 +172,9 @@ void handler_get_extended_pubkey(dispatcher_context_t *dc, uint8_t protocol_vers
 
     char serialized_pubkey_str[MAX_SERIALIZED_PUBKEY_LENGTH + 1];
 
-    int serialized_pubkey_len = get_serialized_extended_pubkey_at_path(bip32_path,
-                                                                       bip32_path_len,
-                                                                       BIP32_PUBKEY_VERSION,
-                                                                       serialized_pubkey_str,
-                                                                       NULL);
+    int serialized_pubkey_len = get_serialized_extended_pubkey_at_path(
+        bip32_path, bip32_path_len, BIP32_PUBKEY_VERSION, serialized_pubkey_str,
+        NULL);
     if (serialized_pubkey_len == -1) {
         SEND_SW(dc, SW_BAD_STATE);
         return;
@@ -177,13 +182,16 @@ void handler_get_extended_pubkey(dispatcher_context_t *dc, uint8_t protocol_vers
 
     char path_str[MAX_SERIALIZED_BIP32_PATH_LENGTH + 1] = "(Master key)";
     if (bip32_path_len > 0) {
-        bip32_path_format(bip32_path, bip32_path_len, path_str, sizeof(path_str));
+        bip32_path_format(bip32_path, bip32_path_len, path_str,
+                          sizeof(path_str));
     }
 
-    if (display && !ui_display_pubkey(dc, path_str, !is_safe, serialized_pubkey_str)) {
+    if (display &&
+        !ui_display_pubkey(dc, path_str, !is_safe, serialized_pubkey_str)) {
         SEND_SW(dc, SW_DENY);
         return;
     }
 
-    SEND_RESPONSE(dc, serialized_pubkey_str, strlen(serialized_pubkey_str), SW_OK);
+    SEND_RESPONSE(dc, serialized_pubkey_str, strlen(serialized_pubkey_str),
+                  SW_OK);
 }
