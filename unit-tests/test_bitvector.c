@@ -1,11 +1,14 @@
-#include <stdarg.h>
-#include <stddef.h>
+// clang-format off
+// cmocka.h must be included last: it relies on types from the headers above
+// (size_t, jmp_buf, va_list). Do not let clang-format sort these.
 #include <setjmp.h>
-#include <stdint.h>
+#include <stdarg.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <string.h>
-
 #include <cmocka.h>
+// clang-format on
 
 #include "common/bitvector.h"
 
@@ -18,7 +21,7 @@ static int popcount(unsigned int n) {
     return result;
 }
 
-static unsigned int popcount_vec(const uint8_t *vec, size_t size) {
+static unsigned int popcount_vec(const uint8_t* vec, size_t size) {
     unsigned int result = 0;
     for (size_t i = 0; i < size; i++) {
         result += popcount(vec[i]);
@@ -26,8 +29,8 @@ static unsigned int popcount_vec(const uint8_t *vec, size_t size) {
     return result;
 }
 
-static void test_bitvector_size(void **state) {
-    (void) state;
+static void test_bitvector_size(void** state) {
+    (void)state;
 
     for (unsigned int i = 0; i < 10; i++) {
         for (unsigned int b = 1; i <= 8; i++) {
@@ -37,8 +40,8 @@ static void test_bitvector_size(void **state) {
     }
 }
 
-static void test_bitvector_get(void **state) {
-    (void) state;
+static void test_bitvector_get(void** state) {
+    (void)state;
 
     uint8_t vec[] = {
         150,  // 0b10010110
@@ -75,8 +78,8 @@ static void test_bitvector_get(void **state) {
     assert_int_equal(bitvector_get(vec, i++), 1);
 }
 
-static void test_bitvector_set(void **state) {
-    (void) state;
+static void test_bitvector_set(void** state) {
+    (void)state;
 
     uint8_t vec[BITVECTOR_REAL_SIZE(129)];
 
@@ -86,12 +89,14 @@ static void test_bitvector_set(void **state) {
         bitvector_set(vec, i, 1);
 
         assert_int_equal(bitvector_get(vec, i), 1);
-        assert_int_equal(popcount_vec(vec, sizeof(vec)), 1);  // exactly 1 bit should be 1
+        assert_int_equal(popcount_vec(vec, sizeof(vec)),
+                         1);  // exactly 1 bit should be 1
 
         bitvector_set(vec, i, 0);
 
         assert_int_equal(bitvector_get(vec, i), 0);
-        assert_int_equal(popcount_vec(vec, sizeof(vec)), 0);  // exactly 0 bits should be 1
+        assert_int_equal(popcount_vec(vec, sizeof(vec)),
+                         0);  // exactly 0 bits should be 1
     }
 }
 

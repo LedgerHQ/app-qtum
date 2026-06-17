@@ -18,40 +18,36 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "os.h"
-#include "cx.h"
-
-#include "../kernel/dispatcher.h"
-#include "../kernel/sw.h"
+#include "../commands.h"
 #include "../common/bip32.h"
 #include "../common/merkle.h"
 #include "../common/read.h"
 #include "../common/wallet.h"
 #include "../common/write.h"
-
-#include "../commands.h"
 #include "../constants.h"
 #include "../crypto.h"
+#include "../kernel/dispatcher.h"
+#include "../kernel/sw.h"
 #include "../ui/display.h"
 #include "../ui/menu.h"
-
+#include "client_commands.h"
+#include "cx.h"
+#include "handlers.h"
 #include "lib/get_merkle_leaf_element.h"
 #include "lib/get_preimage.h"
 #include "lib/policy.h"
+#include "os.h"
 
-#include "client_commands.h"
-
-#include "handlers.h"
-
-static bool is_policy_acceptable(const policy_node_t *policy);
-static bool is_policy_name_acceptable(const char *name, size_t name_len);
+static bool is_policy_acceptable(const policy_node_t* policy);
+static bool is_policy_name_acceptable(const char* name, size_t name_len);
 
 /**
- * Validates the input, initializes the hash context and starts accumulating the wallet header in
- * it.
+ * Validates the input, initializes the hash context and starts accumulating the
+ * wallet header in it.
  */
-void handler_register_wallet(dispatcher_context_t *dc, uint8_t protocol_version) {
-    (void) protocol_version;
+void handler_register_wallet(dispatcher_context_t* dc,
+                             uint8_t protocol_version) {
+    (void)protocol_version;
 
     LOG_PROCESSOR(__FILE__, __LINE__, __func__);
 
@@ -78,12 +74,9 @@ void handler_register_wallet(dispatcher_context_t *dc, uint8_t protocol_version)
     }
 
     uint8_t policy_map_descriptor[MAX_DESCRIPTOR_TEMPLATE_LENGTH];
-    if (0 > read_and_parse_wallet_policy(dc,
-                                         &dc->read_buffer,
-                                         &wallet_header,
-                                         policy_map_descriptor,
-                                         policy_map.bytes,
-                                         sizeof(policy_map.bytes))) {
+    if (0 > read_and_parse_wallet_policy(
+                dc, &dc->read_buffer, &wallet_header, policy_map_descriptor,
+                policy_map.bytes, sizeof(policy_map.bytes))) {
         SEND_SW(dc, SW_INCORRECT_DATA);
         return;
     }
@@ -92,7 +85,8 @@ void handler_register_wallet(dispatcher_context_t *dc, uint8_t protocol_version)
     get_policy_wallet_id(&wallet_header, wallet_id);
 
     // Verify that the name is acceptable
-    if (!is_policy_name_acceptable(wallet_header.name, wallet_header.name_len)) {
+    if (!is_policy_name_acceptable(wallet_header.name,
+                                   wallet_header.name_len)) {
         SEND_SW(dc, SW_INCORRECT_DATA);
         return;
     }
@@ -106,9 +100,7 @@ void handler_register_wallet(dispatcher_context_t *dc, uint8_t protocol_version)
     }
 
     // make sure that the policy is sane (especially if it contains miniscript)
-    if (0 > is_policy_sane(dc,
-                           &policy_map.parsed,
-                           wallet_header.version,
+    if (0 > is_policy_sane(dc, &policy_map.parsed, wallet_header.version,
                            wallet_header.keys_info_merkle_root,
                            wallet_header.n_keys)) {
         PRINTF("Policy is not sane\n");
@@ -117,7 +109,8 @@ void handler_register_wallet(dispatcher_context_t *dc, uint8_t protocol_version)
         return;
     }
 
-    if (!ui_display_register_wallet(dc, &wallet_header, (char *) policy_map_descriptor)) {
+    if (!ui_display_register_wallet(dc, &wallet_header,
+                                    (char*)policy_map_descriptor)) {
         SEND_SW(dc, SW_DENY);
         ui_post_processing_confirm_wallet_registration(dc, false);
         return;
@@ -125,19 +118,17 @@ void handler_register_wallet(dispatcher_context_t *dc, uint8_t protocol_version)
 
     uint32_t master_key_fingerprint = crypto_get_master_key_fingerprint();
 
-    for (size_t cosigner_index = 0; cosigner_index < wallet_header.n_keys; cosigner_index++) {
+    for (size_t cosigner_index = 0; cosigner_index < wallet_header.n_keys;
+         cosigner_index++) {
         /**
          * Receives and parses the next pubkey info.
          * Asks the user to validate the pubkey info.
          */
 
         uint8_t next_pubkey_info[MAX_POLICY_KEY_INFO_LEN + 1];
-        int pubkey_info_len = call_get_merkle_leaf_element(dc,
-                                                           wallet_header.keys_info_merkle_root,
-                                                           wallet_header.n_keys,
-                                                           cosigner_index,
-                                                           next_pubkey_info,
-                                                           MAX_POLICY_KEY_INFO_LEN);
+        int pubkey_info_len = call_get_merkle_leaf_element(
+            dc, wallet_header.keys_info_merkle_root, wallet_header.n_keys,
+            cosigner_index, next_pubkey_info, MAX_POLICY_KEY_INFO_LEN);
 
         if (pubkey_info_len < 0) {
             SEND_SW(dc, SW_INCORRECT_DATA);
@@ -148,70 +139,77 @@ void handler_register_wallet(dispatcher_context_t *dc, uint8_t protocol_version)
         next_pubkey_info[pubkey_info_len] = 0;
 
         // Make a sub-buffer for the pubkey info
-        buffer_t key_info_buffer = buffer_create(next_pubkey_info, pubkey_info_len);
+        buffer_t key_info_buffer =
+            buffer_create(next_pubkey_info, pubkey_info_len);
 
         policy_map_key_info_t key_info;
-        if (parse_policy_map_key_info(&key_info_buffer, &key_info, wallet_header.version) == -1) {
+        if (parse_policy_map_key_info(&key_info_buffer, &key_info,
+                                      wallet_header.version) == -1) {
             PRINTF("Incorrect policy map.\n");
             SEND_SW(dc, SW_INCORRECT_DATA);
             ui_post_processing_confirm_wallet_registration(dc, false);
             return;
         }
 
-        // We refuse to register wallets without key origin information, or whose keys don't end
-        // with the wildcard ('/**'). The key origin information is necessary when signing to
-        // identify which one is our key. Using addresses without a wildcard could potentially be
-        // supported, but disabled for now (question to address: can only _some_ of the keys have a
-        // wildcard?).
+        // We refuse to register wallets without key origin information, or
+        // whose keys don't end with the wildcard ('/**'). The key origin
+        // information is necessary when signing to identify which one is our
+        // key. Using addresses without a wildcard could potentially be
+        // supported, but disabled for now (question to address: can only _some_
+        // of the keys have a wildcard?).
 
         bool is_key_internal = false;
-        // if there is key origin information and the fingerprint matches, we make sure it's not a
-        // false positive (it could be wrong info, or a collision).
+        // if there is key origin information and the fingerprint matches, we
+        // make sure it's not a false positive (it could be wrong info, or a
+        // collision).
         if (key_info.has_key_origin &&
-            read_u32_be(key_info.master_key_fingerprint, 0) == master_key_fingerprint) {
+            read_u32_be(key_info.master_key_fingerprint, 0) ==
+                master_key_fingerprint) {
             // we verify that we can actually generate the same pubkey
             char pubkey_derived[MAX_SERIALIZED_PUBKEY_LENGTH + 1];
-            int serialized_pubkey_len =
-                get_serialized_extended_pubkey_at_path(key_info.master_key_derivation,
-                                                       key_info.master_key_derivation_len,
-                                                       BIP32_PUBKEY_VERSION,
-                                                       pubkey_derived,
-                                                       NULL);
+            int serialized_pubkey_len = get_serialized_extended_pubkey_at_path(
+                key_info.master_key_derivation,
+                key_info.master_key_derivation_len, BIP32_PUBKEY_VERSION,
+                pubkey_derived, NULL);
             if (serialized_pubkey_len == -1) {
                 SEND_SW(dc, SW_BAD_STATE);
                 ui_post_processing_confirm_wallet_registration(dc, false);
                 return;
             }
 
-            if (strncmp(key_info.ext_pubkey, pubkey_derived, MAX_SERIALIZED_PUBKEY_LENGTH) == 0) {
+            if (strncmp(key_info.ext_pubkey, pubkey_derived,
+                        MAX_SERIALIZED_PUBKEY_LENGTH) == 0) {
                 is_key_internal = true;
                 ++n_internal_keys;
             }
         }
 
-        // TODO: it would be sensible to validate the pubkey (at least syntactically + validate
-        // checksum)
-        //       Currently we are showing to the user whichever string is passed by the host.
+        // TODO: it would be sensible to validate the pubkey (at least
+        // syntactically + validate checksum)
+        //       Currently we are showing to the user whichever string is passed
+        //       by the host.
 
-        if (!ui_display_policy_map_cosigner_pubkey(dc,
-                                                   (char *) next_pubkey_info,
-                                                   cosigner_index,  // 1-indexed for the UI
-                                                   wallet_header.n_keys,
-                                                   is_key_internal)) {
+        if (!ui_display_policy_map_cosigner_pubkey(
+                dc, (char*)next_pubkey_info,
+                cosigner_index,  // 1-indexed for the UI
+                wallet_header.n_keys, is_key_internal)) {
             SEND_SW(dc, SW_DENY);
             return;
         }
     }
 
     if (n_internal_keys < 1) {
-        // Unclear if there is any use case for registering policies with no internal keys.
-        // We disallow that, might reconsider in future versions if needed.
+        // Unclear if there is any use case for registering policies with no
+        // internal keys. We disallow that, might reconsider in future versions
+        // if needed.
         PRINTF("Wallet policy with no internal keys\n");
         SEND_SW(dc, SW_INCORRECT_DATA);
         ui_post_processing_confirm_wallet_registration(dc, false);
         return;
-    } else if (n_internal_keys != 1 && wallet_header.version == WALLET_POLICY_VERSION_V1) {
-        // for legacy policies, we keep the restriction to exactly 1 internal key
+    } else if (n_internal_keys != 1 &&
+               wallet_header.version == WALLET_POLICY_VERSION_V1) {
+        // for legacy policies, we keep the restriction to exactly 1 internal
+        // key
         PRINTF("V1 policies must have exactly 1 internal key\n");
         SEND_SW(dc, SW_INCORRECT_DATA);
         ui_post_processing_confirm_wallet_registration(dc, false);
@@ -225,14 +223,16 @@ void handler_register_wallet(dispatcher_context_t *dc, uint8_t protocol_version)
 
     memcpy(response.wallet_id, wallet_id, sizeof(wallet_id));
 
-    // TODO: we might want to add external info to be committed with the signature (e.g.: app
-    // version).
-    //       This would allow newer versions of the app to invalidate an old signature if desired,
-    //       for example if a vulnerability is discovered in the registration flow of a previous
-    //       app. The response would be changed to:
+    // TODO: we might want to add external info to be committed with the
+    // signature (e.g.: app version).
+    //       This would allow newer versions of the app to invalidate an old
+    //       signature if desired, for example if a vulnerability is discovered
+    //       in the registration flow of a previous app. The response would be
+    //       changed to:
     //         <wallet_id> <metadata_len> <metadata> <hmac>
-    //       And the signature would be on the concatenation of the wallet id and the metadata.
-    //       The client must persist the metadata, together with the signature.
+    //       And the signature would be on the concatenation of the wallet id
+    //       and the metadata. The client must persist the metadata, together
+    //       with the signature.
 
     compute_wallet_hmac(wallet_id, response.hmac);
 
@@ -240,12 +240,13 @@ void handler_register_wallet(dispatcher_context_t *dc, uint8_t protocol_version)
     ui_post_processing_confirm_wallet_registration(dc, true);
 }
 
-static bool is_policy_acceptable(const policy_node_t *policy) {
-    return policy->type == TOKEN_PKH || policy->type == TOKEN_WPKH || policy->type == TOKEN_SH ||
-           policy->type == TOKEN_WSH || policy->type == TOKEN_TR;
+static bool is_policy_acceptable(const policy_node_t* policy) {
+    return policy->type == TOKEN_PKH || policy->type == TOKEN_WPKH ||
+           policy->type == TOKEN_SH || policy->type == TOKEN_WSH ||
+           policy->type == TOKEN_TR;
 }
 
-static bool is_policy_name_acceptable(const char *name, size_t name_len) {
+static bool is_policy_name_acceptable(const char* name, size_t name_len) {
     // between 1 and MAX_WALLET_NAME_LENGTH characters
     if (name_len == 0 || name_len > MAX_WALLET_NAME_LENGTH) return false;
 

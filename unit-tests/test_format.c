@@ -1,16 +1,19 @@
-#include <stdarg.h>
-#include <stddef.h>
+// clang-format off
+// cmocka.h must be included last: it relies on types from the headers above
+// (size_t, jmp_buf, va_list). Do not let clang-format sort these.
 #include <setjmp.h>
-#include <stdint.h>
+#include <stdarg.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <string.h>
-
 #include <cmocka.h>
+// clang-format on
 
 #include "common/format.h"
 
-static void test_format_i64(void **state) {
-    (void) state;
+static void test_format_i64(void** state) {
+    (void)state;
 
     char temp[22] = {0};
 
@@ -18,7 +21,7 @@ static void test_format_i64(void **state) {
     assert_true(format_i64(temp, sizeof(temp), value));
     assert_string_equal(temp, "0");
 
-    value = (int64_t) 9223372036854775807ull;  // MAX_INT64
+    value = (int64_t)9223372036854775807ull;  // MAX_INT64
     memset(temp, 0, sizeof(temp));
     assert_true(format_i64(temp, sizeof(temp), value));
     assert_string_equal(temp, "9223372036854775807");
@@ -26,14 +29,14 @@ static void test_format_i64(void **state) {
     // buffer too small
     assert_false(format_i64(temp, sizeof(temp) - 5, value));
 
-    value = (int64_t) -9223372036854775808ull;  // MIN_INT64
+    value = (int64_t)-9223372036854775808ull;  // MIN_INT64
     memset(temp, 0, sizeof(temp));
     assert_true(format_i64(temp, sizeof(temp), value));
     assert_string_equal(temp, "-9223372036854775808");
 }
 
-static void test_format_u64(void **state) {
-    (void) state;
+static void test_format_u64(void** state) {
+    (void)state;
 
     char temp[21] = {0};
 
@@ -41,7 +44,7 @@ static void test_format_u64(void **state) {
     assert_true(format_u64(temp, sizeof(temp), value));
     assert_string_equal(temp, "0");
 
-    value = (uint64_t) 18446744073709551615ull;  // MAX_UNT64
+    value = (uint64_t)18446744073709551615ull;  // MAX_UNT64
     memset(temp, 0, sizeof(temp));
     assert_true(format_u64(temp, sizeof(temp), value));
     assert_string_equal(temp, "18446744073709551615");
@@ -50,8 +53,8 @@ static void test_format_u64(void **state) {
     assert_false(format_u64(temp, sizeof(temp) - 5, value));
 }
 
-static void test_format_fpu64(void **state) {
-    (void) state;
+static void test_format_fpu64(void** state) {
+    (void)state;
 
     char temp[22] = {0};
 
@@ -82,24 +85,26 @@ static void test_format_fpu64(void **state) {
     assert_false(format_fpu64(temp2, sizeof(temp2) - 20, amount, 18));
 }
 
-static void test_format_hex(void **state) {
-    (void) state;
+static void test_format_hex(void** state) {
+    (void)state;
 
-    uint8_t address[] = {0xde, 0xb,  0x29, 0x56, 0x69, 0xa9, 0xfd, 0x93, 0xd5, 0xf2,
-                         0x8d, 0x9e, 0xc8, 0x5e, 0x40, 0xf4, 0xcb, 0x69, 0x7b, 0xae};
+    uint8_t address[] = {0xde, 0xb,  0x29, 0x56, 0x69, 0xa9, 0xfd,
+                         0x93, 0xd5, 0xf2, 0x8d, 0x9e, 0xc8, 0x5e,
+                         0x40, 0xf4, 0xcb, 0x69, 0x7b, 0xae};
     char output[2 * sizeof(address) + 1] = {0};
 
-    assert_int_equal(2 * sizeof(address) + 1,
-                     format_hex(address, sizeof(address), output, sizeof(output)));
+    assert_int_equal(
+        2 * sizeof(address) + 1,
+        format_hex(address, sizeof(address), output, sizeof(output)));
     assert_string_equal(output, "de0b295669a9fd93d5f28d9ec85e40f4cb697bae");
-    assert_int_equal(-1, format_hex(address, sizeof(address), output, sizeof(address)));
+    assert_int_equal(
+        -1, format_hex(address, sizeof(address), output, sizeof(address)));
 }
 
 int main() {
-    const struct CMUnitTest tests[] = {cmocka_unit_test(test_format_i64),
-                                       cmocka_unit_test(test_format_u64),
-                                       cmocka_unit_test(test_format_fpu64),
-                                       cmocka_unit_test(test_format_hex)};
+    const struct CMUnitTest tests[] = {
+        cmocka_unit_test(test_format_i64), cmocka_unit_test(test_format_u64),
+        cmocka_unit_test(test_format_fpu64), cmocka_unit_test(test_format_hex)};
 
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

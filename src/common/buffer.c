@@ -14,22 +14,23 @@
  *  limitations under the License.
  *****************************************************************************/
 
-#include <stdint.h>   // uint*_t
-#include <stddef.h>   // size_t
+#include "buffer.h"
+
 #include <stdbool.h>  // bool
+#include <stddef.h>   // size_t
+#include <stdint.h>   // uint*_t
 #include <string.h>   // memmove
 
-#include "buffer.h"
-#include "read.h"
-#include "write.h"
-#include "varint.h"
 #include "bip32.h"
+#include "read.h"
+#include "varint.h"
+#include "write.h"
 
-bool buffer_can_read(const buffer_t *buffer, size_t n) {
+bool buffer_can_read(const buffer_t* buffer, size_t n) {
     return buffer->size - buffer->offset >= n;
 }
 
-bool buffer_seek_set(buffer_t *buffer, size_t offset) {
+bool buffer_seek_set(buffer_t* buffer, size_t offset) {
     if (offset > buffer->size) {
         return false;
     }
@@ -39,7 +40,7 @@ bool buffer_seek_set(buffer_t *buffer, size_t offset) {
     return true;
 }
 
-bool buffer_seek_cur(buffer_t *buffer, size_t offset) {
+bool buffer_seek_cur(buffer_t* buffer, size_t offset) {
     if (buffer->offset + offset < buffer->offset ||  // overflow
         buffer->offset + offset > buffer->size) {    // exceed buffer size
         return false;
@@ -50,7 +51,7 @@ bool buffer_seek_cur(buffer_t *buffer, size_t offset) {
     return true;
 }
 
-bool buffer_seek_end(buffer_t *buffer, size_t offset) {
+bool buffer_seek_end(buffer_t* buffer, size_t offset) {
     if (offset > buffer->size) {
         return false;
     }
@@ -60,7 +61,7 @@ bool buffer_seek_end(buffer_t *buffer, size_t offset) {
     return true;
 }
 
-bool buffer_read_u8(buffer_t *buffer, uint8_t *value) {
+bool buffer_read_u8(buffer_t* buffer, uint8_t* value) {
     if (!buffer_can_read(buffer, 1)) {
         *value = 0;
 
@@ -73,11 +74,11 @@ bool buffer_read_u8(buffer_t *buffer, uint8_t *value) {
     return true;
 }
 
-bool buffer_peek(const buffer_t *buffer, uint8_t *value) {
+bool buffer_peek(const buffer_t* buffer, uint8_t* value) {
     return buffer_peek_n(buffer, 0, value);
 }
 
-bool buffer_peek_n(const buffer_t *buffer, size_t n, uint8_t *value) {
+bool buffer_peek_n(const buffer_t* buffer, size_t n, uint8_t* value) {
     if (!buffer_can_read(buffer, n + 1)) {
         return false;
     }
@@ -87,7 +88,8 @@ bool buffer_peek_n(const buffer_t *buffer, size_t n, uint8_t *value) {
     return true;
 }
 
-bool buffer_read_u16(buffer_t *buffer, uint16_t *value, endianness_t endianness) {
+bool buffer_read_u16(buffer_t* buffer, uint16_t* value,
+                     endianness_t endianness) {
     if (!buffer_can_read(buffer, 2)) {
         *value = 0;
 
@@ -102,7 +104,8 @@ bool buffer_read_u16(buffer_t *buffer, uint16_t *value, endianness_t endianness)
     return true;
 }
 
-bool buffer_read_u32(buffer_t *buffer, uint32_t *value, endianness_t endianness) {
+bool buffer_read_u32(buffer_t* buffer, uint32_t* value,
+                     endianness_t endianness) {
     if (!buffer_can_read(buffer, 4)) {
         *value = 0;
 
@@ -117,7 +120,8 @@ bool buffer_read_u32(buffer_t *buffer, uint32_t *value, endianness_t endianness)
     return true;
 }
 
-bool buffer_read_u64(buffer_t *buffer, uint64_t *value, endianness_t endianness) {
+bool buffer_read_u64(buffer_t* buffer, uint64_t* value,
+                     endianness_t endianness) {
     if (!buffer_can_read(buffer, 8)) {
         *value = 0;
 
@@ -132,12 +136,13 @@ bool buffer_read_u64(buffer_t *buffer, uint64_t *value, endianness_t endianness)
     return true;
 }
 
-bool buffer_read_varint(buffer_t *buffer, uint64_t *value) {
+bool buffer_read_varint(buffer_t* buffer, uint64_t* value) {
     if (buffer->ptr == NULL) {
         return false;
     }
 
-    int length = varint_read(buffer->ptr + buffer->offset, buffer->size - buffer->offset, value);
+    int length = varint_read(buffer->ptr + buffer->offset,
+                             buffer->size - buffer->offset, value);
 
     if (length < 0) {
         *value = 0;
@@ -145,16 +150,14 @@ bool buffer_read_varint(buffer_t *buffer, uint64_t *value) {
         return false;
     }
 
-    buffer_seek_cur(buffer, (size_t) length);
+    buffer_seek_cur(buffer, (size_t)length);
 
     return true;
 }
 
-bool buffer_read_bip32_path(buffer_t *buffer, uint32_t *out, size_t out_len) {
+bool buffer_read_bip32_path(buffer_t* buffer, uint32_t* out, size_t out_len) {
     if (!bip32_path_read(buffer->ptr + buffer->offset,
-                         buffer->size - buffer->offset,
-                         out,
-                         out_len)) {
+                         buffer->size - buffer->offset, out, out_len)) {
         return false;
     }
 
@@ -163,7 +166,7 @@ bool buffer_read_bip32_path(buffer_t *buffer, uint32_t *out, size_t out_len) {
     return true;
 }
 
-bool buffer_read_bytes(buffer_t *buffer, uint8_t *out, size_t n) {
+bool buffer_read_bytes(buffer_t* buffer, uint8_t* out, size_t n) {
     if (buffer->size - buffer->offset < n) {
         return false;
     }
@@ -174,7 +177,7 @@ bool buffer_read_bytes(buffer_t *buffer, uint8_t *out, size_t n) {
     return true;
 }
 
-bool buffer_write_u8(buffer_t *buffer, uint8_t value) {
+bool buffer_write_u8(buffer_t* buffer, uint8_t value) {
     if (!buffer_can_read(buffer, 1)) {
         return false;
     }
@@ -185,7 +188,8 @@ bool buffer_write_u8(buffer_t *buffer, uint8_t value) {
     return true;
 }
 
-bool buffer_write_u16(buffer_t *buffer, uint16_t value, endianness_t endianness) {
+bool buffer_write_u16(buffer_t* buffer, uint16_t value,
+                      endianness_t endianness) {
     if (!buffer_can_read(buffer, 2)) {
         return false;
     }
@@ -200,7 +204,8 @@ bool buffer_write_u16(buffer_t *buffer, uint16_t value, endianness_t endianness)
     return true;
 }
 
-bool buffer_write_u32(buffer_t *buffer, uint32_t value, endianness_t endianness) {
+bool buffer_write_u32(buffer_t* buffer, uint32_t value,
+                      endianness_t endianness) {
     if (!buffer_can_read(buffer, 4)) {
         return false;
     }
@@ -215,7 +220,8 @@ bool buffer_write_u32(buffer_t *buffer, uint32_t value, endianness_t endianness)
     return true;
 }
 
-bool buffer_write_u64(buffer_t *buffer, uint64_t value, endianness_t endianness) {
+bool buffer_write_u64(buffer_t* buffer, uint64_t value,
+                      endianness_t endianness) {
     if (!buffer_can_read(buffer, 8)) {
         return false;
     }
@@ -231,7 +237,7 @@ bool buffer_write_u64(buffer_t *buffer, uint64_t value, endianness_t endianness)
     return true;
 }
 
-bool buffer_write_bytes(buffer_t *buffer, const uint8_t *data, size_t n) {
+bool buffer_write_bytes(buffer_t* buffer, const uint8_t* data, size_t n) {
     if (!buffer_can_read(buffer, n)) {
         return false;
     }
@@ -241,11 +247,11 @@ bool buffer_write_bytes(buffer_t *buffer, const uint8_t *data, size_t n) {
     return true;
 }
 
-void *buffer_alloc(buffer_t *buffer, size_t size, bool aligned) {
+void* buffer_alloc(buffer_t* buffer, size_t size, bool aligned) {
     size_t padding_size = 0;
 
     if (aligned) {
-        uint32_t d = (uint32_t) (buffer->ptr + buffer->offset) % 4;
+        uint32_t d = (uint32_t)(buffer->ptr + buffer->offset) % 4;
         if (d != 0) {
             padding_size = 4 - d;
         }
@@ -255,7 +261,7 @@ void *buffer_alloc(buffer_t *buffer, size_t size, bool aligned) {
         return NULL;
     }
 
-    void *result = buffer->ptr + buffer->offset + padding_size;
+    void* result = buffer->ptr + buffer->offset + padding_size;
     buffer_seek_cur(buffer, padding_size + size);
     return result;
 }

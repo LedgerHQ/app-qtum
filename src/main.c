@@ -15,45 +15,41 @@
  *  limitations under the License.
  *****************************************************************************/
 
+#include <assert.h>
 #include <stdint.h>  // uint*_t
 #include <string.h>  // memset, explicit_bzero
 
-#include <assert.h>
-
-#include "os.h"
-#include "ux.h"
-
+#include "commands.h"
+#include "common/wallet.h"
+#include "debug-helpers/debug.h"
 #include "globals.h"
+#include "handler/handlers.h"
 #include "io.h"
-#include "sw.h"
-#include "ui/menu.h"
 #include "kernel/apdu_parser.h"
 #include "kernel/constants.h"
 #include "kernel/dispatcher.h"
-
-#include "debug-helpers/debug.h"
-
-#include "handler/handlers.h"
-#include "commands.h"
-
-#include "common/wallet.h"
+#include "os.h"
+#include "sw.h"
+#include "ui/menu.h"
+#include "ux.h"
 
 // common declarations between legacy and new code; will refactor it out later
-#include "swap/swap_lib_calls.h"
-#include "swap/swap_globals.h"
-#include "swap/handle_swap_sign_transaction.h"
-#include "swap/handle_get_printable_amount.h"
 #include "swap/handle_check_address.h"
+#include "swap/handle_get_printable_amount.h"
+#include "swap/handle_swap_sign_transaction.h"
+#include "swap/swap_globals.h"
+#include "swap/swap_lib_calls.h"
 
-// we don't import main_old.h in legacy-only mode, but we still need libargs_s; will refactor later
+// we don't import main_old.h in legacy-only mode, but we still need libargs_s;
+// will refactor later
 struct libargs_s {
     unsigned int id;
     unsigned int command;
-    void *unused;  // it used to be the coin_config; unused in the new app
+    void* unused;  // it used to be the coin_config; unused in the new app
     union {
-        check_address_parameters_t *check_address;
-        create_transaction_parameters_t *create_transaction;
-        get_printable_amount_parameters_t *get_printable_amount;
+        check_address_parameters_t* check_address;
+        create_transaction_parameters_t* create_transaction;
+        get_printable_amount_parameters_t* get_printable_amount;
     };
 };
 
@@ -133,11 +129,7 @@ void app_main() {
         }
 
         PRINTF("=> CLA=%02X | INS=%02X | P1=%02X | P2=%02X | Lc=%02X | CData=",
-               cmd.cla,
-               cmd.ins,
-               cmd.p1,
-               cmd.p2,
-               cmd.lc);
+               cmd.cla, cmd.ins, cmd.p1, cmd.p2, cmd.lc);
         for (int i = 0; i < cmd.lc; i++) {
             PRINTF("%02X", cmd.data[i]);
         }
@@ -148,11 +140,13 @@ void app_main() {
                 io_send_sw(SW_CLA_NOT_SUPPORTED);
                 continue;
             }
-            if (cmd.ins != GET_EXTENDED_PUBKEY && cmd.ins != GET_WALLET_ADDRESS &&
-                cmd.ins != SIGN_PSBT && cmd.ins != GET_MASTER_FINGERPRINT &&
+            if (cmd.ins != GET_EXTENDED_PUBKEY &&
+                cmd.ins != GET_WALLET_ADDRESS && cmd.ins != SIGN_PSBT &&
+                cmd.ins != GET_MASTER_FINGERPRINT &&
                 cmd.ins != SIGN_SENDER_PSBT) {
                 PRINTF(
-                    "Only GET_EXTENDED_PUBKEY, GET_WALLET_ADDRESS, SIGN_PSBT, SIGN_SENDER_PSBT and "
+                    "Only GET_EXTENDED_PUBKEY, GET_WALLET_ADDRESS, SIGN_PSBT, "
+                    "SIGN_SENDER_PSBT and "
                     "GET_MASTER_FINGERPRINT can be called during swap\n");
                 io_send_sw(SW_INS_NOT_SUPPORTED);
                 continue;
@@ -160,10 +154,10 @@ void app_main() {
         }
 
         // Dispatch structured APDU command to handler
-        apdu_dispatcher(COMMAND_DESCRIPTORS,
-                        sizeof(COMMAND_DESCRIPTORS) / sizeof(COMMAND_DESCRIPTORS[0]),
-                        ui_menu_main,
-                        &cmd);
+        apdu_dispatcher(
+            COMMAND_DESCRIPTORS,
+            sizeof(COMMAND_DESCRIPTORS) / sizeof(COMMAND_DESCRIPTORS[0]),
+            ui_menu_main, &cmd);
 
         if (G_swap_state.called_from_swap && G_swap_state.should_exit) {
             os_sched_exit(0);
@@ -176,11 +170,8 @@ void app_main() {
  */
 void app_exit() {
     BEGIN_TRY_L(exit) {
-        TRY_L(exit) {
-            os_sched_exit(-1);
-        }
-        FINALLY_L(exit) {
-        }
+        TRY_L(exit) { os_sched_exit(-1); }
+        FINALLY_L(exit) {}
     }
     END_TRY_L(exit);
 }
@@ -188,10 +179,11 @@ void app_exit() {
 static void initialize_app_globals() {
     io_reset_timeouts();
 
-    // We only zero the called_from_swap and should_exit fields and not the entire G_swap_state, as
-    // we need the globals initialization to happen _after_ calling copy_transaction_parameters when
-    // processing a SIGN_TRANSACTION request from the swap app (which initializes the other fields
-    // of G_swap_state).
+    // We only zero the called_from_swap and should_exit fields and not the
+    // entire G_swap_state, as we need the globals initialization to happen
+    // _after_ calling copy_transaction_parameters when processing a
+    // SIGN_TRANSACTION request from the swap app (which initializes the other
+    // fields of G_swap_state).
     G_swap_state.called_from_swap = false;
     G_swap_state.should_exit = false;
 }
@@ -207,7 +199,8 @@ void coin_main() {
     // assumptions on the length of data structures
 
     _Static_assert(sizeof(cx_sha256_t) <= 108, "cx_sha256_t too large");
-    _Static_assert(sizeof(policy_map_key_info_t) <= 156, "policy_map_key_info_t too large");
+    _Static_assert(sizeof(policy_map_key_info_t) <= 156,
+                   "policy_map_key_info_t too large");
 
 #if defined(HAVE_PRINT_STACK_POINTER) && defined(HAVE_BOLOS_APP_STACK_CANARY)
     PRINTF("STACK CANARY ADDRESS: %08x\n", &app_stack_canary);
@@ -230,7 +223,8 @@ void coin_main() {
 
 #ifdef HAVE_BLE
                 // grab the current plane mode setting
-                G_io_app.plane_mode = os_setting_get(OS_SETTING_PLANEMODE, NULL, 0);
+                G_io_app.plane_mode =
+                    os_setting_get(OS_SETTING_PLANEMODE, NULL, 0);
 #endif  // HAVE_BLE
 
                 if (!N_storage.initialized) {
@@ -241,7 +235,8 @@ void coin_main() {
                     storage.dataAllowed = false;
 #endif
                     storage.initialized = true;
-                    nvm_write((void *) &N_storage, (void *) &storage, sizeof(internalStorage_t));
+                    nvm_write((void*)&N_storage, (void*)&storage,
+                              sizeof(internalStorage_t));
                 }
 
                 USB_power(0);
@@ -265,26 +260,27 @@ void coin_main() {
                 CLOSE_TRY;
                 break;
             }
-            FINALLY {
-            }
+            FINALLY {}
         }
         END_TRY;
     }
     app_exit();
 }
 
-static void swap_library_main_helper(struct libargs_s *args) {
+static void swap_library_main_helper(struct libargs_s* args) {
     PRINTF("Inside a library \n");
     switch (args->command) {
         case CHECK_ADDRESS:
             // ensure result is zero if an exception is thrown
             args->check_address->result = 0;
-            args->check_address->result = handle_check_address(args->check_address);
+            args->check_address->result =
+                handle_check_address(args->check_address);
             break;
         case SIGN_TRANSACTION: {
             // copying arguments (pointing to globals) to context *before*
             // calling `initialize_app_globals` as it could override them
-            const bool args_are_copied = copy_transaction_parameters(args->create_transaction);
+            const bool args_are_copied =
+                copy_transaction_parameters(args->create_transaction);
             initialize_app_globals();
             if (args_are_copied) {
                 // never returns
@@ -305,7 +301,8 @@ static void swap_library_main_helper(struct libargs_s *args) {
                     storage.dataAllowed = false;
 #endif
                     storage.initialized = true;
-                    nvm_write((void *) &N_storage, (void *) &storage, sizeof(internalStorage_t));
+                    nvm_write((void*)&N_storage, (void*)&storage,
+                              sizeof(internalStorage_t));
                 }
 
                 USB_power(0);
@@ -313,7 +310,8 @@ static void swap_library_main_helper(struct libargs_s *args) {
                 PRINTF("USB power ON/OFF\n");
 #ifdef HAVE_BLE
                 // grab the current plane mode setting
-                G_io_app.plane_mode = os_setting_get(OS_SETTING_PLANEMODE, NULL, 0);
+                G_io_app.plane_mode =
+                    os_setting_get(OS_SETTING_PLANEMODE, NULL, 0);
                 BLE_power(0, NULL);
                 BLE_power(1, NULL);
 #endif  // HAVE_BLE
@@ -322,8 +320,8 @@ static void swap_library_main_helper(struct libargs_s *args) {
             break;
         }
         case GET_PRINTABLE_AMOUNT:
-            // ensure result is zero if an exception is thrown (compatibility breaking, disabled
-            // until LL is ready)
+            // ensure result is zero if an exception is thrown (compatibility
+            // breaking, disabled until LL is ready)
             // args->get_printable_amount->result = 0;
             // args->get_printable_amount->result =
             handle_get_printable_amount(args->get_printable_amount);
@@ -333,7 +331,7 @@ static void swap_library_main_helper(struct libargs_s *args) {
     }
 }
 
-void swap_library_main(struct libargs_s *args) {
+void swap_library_main(struct libargs_s* args) {
     bool end = false;
     /* This loop ensures that swap_library_main_helper and os_lib_end are called
      * within a try context, even if an exception is thrown */
@@ -345,9 +343,7 @@ void swap_library_main(struct libargs_s *args) {
                 }
                 os_lib_end();
             }
-            FINALLY {
-                end = true;
-            }
+            FINALLY { end = true; }
         }
         END_TRY;
     }
@@ -367,7 +363,7 @@ __attribute__((section(".boot"))) int main(int arg0) {
     }
 
     // Application launched as library (for swap support)
-    struct libargs_s *args = (struct libargs_s *) arg0;
+    struct libargs_s* args = (struct libargs_s*)arg0;
     if (args->id != 0x100) {
         app_exit();
         return 0;

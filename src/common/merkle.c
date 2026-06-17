@@ -15,19 +15,19 @@
  *  limitations under the License.
  *****************************************************************************/
 
-#include <stdint.h>   // uint*_t
-#include <string.h>   // memset, explicit_bzero
-#include <stdbool.h>  // bool
-
-#include "buffer.h"
-#include "../crypto.h"
-
 #include "merkle.h"
 
+#include <stdbool.h>  // bool
+#include <stdint.h>   // uint*_t
+#include <string.h>   // memset, explicit_bzero
+
+#include "../crypto.h"
+#include "buffer.h"
 #include "cx_ram.h"
 #include "debug-helpers/debug.h"
 
-void merkle_compute_element_hash(const uint8_t *in, size_t in_len, uint8_t out[static 32]) {
+void merkle_compute_element_hash(const uint8_t* in, size_t in_len,
+                                 uint8_t out[static 32]) {
     cx_sha256_t hash;
     cx_sha256_init(&hash);
 
@@ -66,8 +66,8 @@ int merkle_get_ith_direction(size_t size, size_t index, size_t i) {
     while (size > 1) {
         uint8_t depth = ceil_lg(size);
 
-        // bitmask of the direction from the current node, where 0 = left, 1 = right;
-        // also the number of leaves of the left subtree
+        // bitmask of the direction from the current node, where 0 = left, 1 =
+        // right; also the number of leaves of the left subtree
         uint32_t mask = 1 << (depth - 1);
 
         uint8_t is_right_child = (index & mask) != 0 ? 1 : 0;

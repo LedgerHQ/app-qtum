@@ -1,10 +1,11 @@
-#include <stdio.h>
 #include <stdarg.h>
+#include <stdio.h>
+
 #include "printf.h"
 
 #pragma GCC diagnostic ignored "-Wunused-function"
 
-void debug_write(const char *buf) {
+void debug_write(const char* buf) {
     asm volatile(
         "movs r0, #0x04\n"
         "movs r1, %0\n"
@@ -12,7 +13,7 @@ void debug_write(const char *buf) {
         : "r0", "r1");
 }
 
-int semihosted_printf(const char *format, ...) {
+int semihosted_printf(const char* format, ...) {
     char buf[128 + 1];
 
     va_list args;
@@ -39,8 +40,9 @@ static unsigned int __attribute__((noinline)) get_stack_pointer() {
     return stack_top;
 }
 
-void print_stack_pointer(const char *file, int line, const char *func_name) {
-    (void) file, (void) line, (void) func_name;  // avoid warnings when DEBUG == 0
+void print_stack_pointer(const char* file, int line, const char* func_name) {
+    (void)file, (void)line, (void)func_name;  // avoid warnings when DEBUG == 0
 
-    PRINTF("STACK (%s) %s:%d: %08x\n", func_name, file, line, get_stack_pointer());
+    PRINTF("STACK (%s) %s:%d: %08x\n", func_name, file, line,
+           get_stack_pointer());
 }

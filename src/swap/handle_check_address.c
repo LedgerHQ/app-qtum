@@ -1,33 +1,30 @@
-#include <string.h>
-
-#include "os.h"
-
 #include "handle_check_address.h"
-#include "bip32_path.h"
+
+#include <string.h>
 
 #include "../common/segwit_addr.h"
 #include "../crypto.h"
+#include "bip32_path.h"
+#include "os.h"
 
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 // constants previously defined in btchip_apdu_get_wallet_public_key.h
-#define P1_NO_DISPLAY    0x00
-#define P1_DISPLAY       0x01
+#define P1_NO_DISPLAY 0x00
+#define P1_DISPLAY 0x01
 #define P1_REQUEST_TOKEN 0x02
 
-#define P2_LEGACY        0x00
-#define P2_SEGWIT        0x01
+#define P2_LEGACY 0x00
+#define P2_SEGWIT 0x01
 #define P2_NATIVE_SEGWIT 0x02  // bech32
-#define P2_CASHADDR      0x03
-#define P2_TAPROOT       0x04  // bech32m
+#define P2_CASHADDR 0x03
+#define P2_TAPROOT 0x04  // bech32m
 
-bool get_address_from_compressed_public_key(unsigned char format,
-                                            unsigned char* compressed_pub_key,
-                                            unsigned short payToAddressVersion,
-                                            unsigned short payToScriptHashVersion,
-                                            const char* native_segwit_prefix,
-                                            char* address,
-                                            unsigned char max_address_length) {
+bool get_address_from_compressed_public_key(
+    unsigned char format, unsigned char* compressed_pub_key,
+    unsigned short payToAddressVersion, unsigned short payToScriptHashVersion,
+    const char* native_segwit_prefix, char* address,
+    unsigned char max_address_length) {
     int address_length;
 
     // clang-format off
@@ -35,8 +32,8 @@ bool get_address_from_compressed_public_key(unsigned char format,
         // clang-format on
         uint8_t tmp[20];
         crypto_hash160(compressed_pub_key, 33, tmp);
-        address_length =
-            base58_encode_address(tmp, payToAddressVersion, address, max_address_length - 1);
+        address_length = base58_encode_address(tmp, payToAddressVersion,
+                                               address, max_address_length - 1);
         if (address_length < 0) {
             return false;
         }
@@ -54,8 +51,8 @@ bool get_address_from_compressed_public_key(unsigned char format,
             uint8_t tmp[20];
             crypto_hash160(script, 22, tmp);
             // wrapped segwit
-            address_length =
-                base58_encode_address(tmp, payToScriptHashVersion, address, max_address_length - 1);
+            address_length = base58_encode_address(
+                tmp, payToScriptHashVersion, address, max_address_length - 1);
             if (address_length < 0) {
                 return false;
             }
@@ -63,20 +60,19 @@ bool get_address_from_compressed_public_key(unsigned char format,
         } else {  // native segwit or taproot
             if (!native_segwit_prefix) return false;
             if (format == P2_NATIVE_SEGWIT) {
-                if (!segwit_addr_encode(address, native_segwit_prefix, 0, script + 2, 20)) {
+                if (!segwit_addr_encode(address, native_segwit_prefix, 0,
+                                        script + 2, 20)) {
                     return false;
                 }
             } else if (format == P2_TAPROOT) {
                 uint8_t tweaked_key[32];
 
                 uint8_t parity;
-                crypto_tr_tweak_pubkey(compressed_pub_key + 1,
-                                       (uint8_t[]){},
-                                       0,
-                                       &parity,
-                                       tweaked_key);
+                crypto_tr_tweak_pubkey(compressed_pub_key + 1, (uint8_t[]){}, 0,
+                                       &parity, tweaked_key);
 
-                if (!segwit_addr_encode(address, native_segwit_prefix, 1, tweaked_key, 32)) {
+                if (!segwit_addr_encode(address, native_segwit_prefix, 1,
+                                        tweaked_key, 32)) {
                     return false;
                 }
             } else {
@@ -95,7 +91,7 @@ static int os_strcmp(const char* s1, const char* s2) {
 
 int handle_check_address(check_address_parameters_t* params) {
     unsigned char compressed_public_key[33];
-    PRINTF("Params on the address %d\n", (unsigned int) params);
+    PRINTF("Params on the address %d\n", (unsigned int)params);
     PRINTF("Address to check %s\n", params->address_to_check);
     PRINTF("Inside handle_check_address\n");
     if (params->address_to_check == 0) {
@@ -103,27 +99,21 @@ int handle_check_address(check_address_parameters_t* params) {
         return 0;
     }
     bip32_path_t path;
-    if (!parse_serialized_path(&path,
-                               params->address_parameters + 1,
+    if (!parse_serialized_path(&path, params->address_parameters + 1,
                                params->address_parameters_length - 1)) {
         PRINTF("Can't parse path\n");
         return false;
     }
 
-    if (!crypto_get_compressed_pubkey_at_path(path.path,
-                                              path.length,
-                                              compressed_public_key,
-                                              NULL)) {
+    if (!crypto_get_compressed_pubkey_at_path(path.path, path.length,
+                                              compressed_public_key, NULL)) {
         return 0;
     }
     char address[MAX_ADDRESS_LENGTH_STR + 1];
-    if (!get_address_from_compressed_public_key(params->address_parameters[0],
-                                                compressed_public_key,
-                                                COIN_P2PKH_VERSION,
-                                                COIN_P2SH_VERSION,
-                                                COIN_NATIVE_SEGWIT_PREFIX,
-                                                address,
-                                                sizeof(address))) {
+    if (!get_address_from_compressed_public_key(
+            params->address_parameters[0], compressed_public_key,
+            COIN_P2PKH_VERSION, COIN_P2SH_VERSION, COIN_NATIVE_SEGWIT_PREFIX,
+            address, sizeof(address))) {
         PRINTF("Can't create address from given public key\n");
         return 0;
     }

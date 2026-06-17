@@ -17,25 +17,24 @@
 
 #include <stdint.h>
 
-#include "kernel/io.h"
-#include "kernel/dispatcher.h"
-#include "kernel/sw.h"
-#include "../common/bip32.h"
 #include "../commands.h"
+#include "../common/bip32.h"
 #include "../constants.h"
 #include "../crypto.h"
 #include "../ui/display.h"
 #include "../ui/menu.h"
+#include "handlers.h"
+#include "kernel/dispatcher.h"
+#include "kernel/io.h"
+#include "kernel/sw.h"
 #include "lib/get_merkle_leaf_element.h"
 
-#include "handlers.h"
+static unsigned char const BSM_SIGN_MAGIC[] = {
+    '\x15', 'Q', 't', 'u', 'm', ' ', 'S', 'i', 'g', 'n', 'e',
+    'd',    ' ', 'M', 'e', 's', 's', 'a', 'g', 'e', ':', '\n'};
 
-static unsigned char const BSM_SIGN_MAGIC[] = {'\x15', 'Q', 't', 'u', 'm', ' ', 'S', 'i',
-                                               'g',    'n', 'e', 'd', ' ', 'M', 'e', 's',
-                                               's',    'a', 'g', 'e', ':', '\n'};
-
-void handler_sign_message(dispatcher_context_t *dc, uint8_t protocol_version) {
-    (void) protocol_version;
+void handler_sign_message(dispatcher_context_t* dc, uint8_t protocol_version) {
+    (void)protocol_version;
 
     uint8_t bip32_path_len;
     uint32_t bip32_path[MAX_BIP32_PATH_STEPS];
@@ -56,33 +55,34 @@ void handler_sign_message(dispatcher_context_t *dc, uint8_t protocol_version) {
         return;
     }
 
-    if (bip32_path_len > MAX_BIP32_PATH_STEPS || message_length >= (1LL << 32)) {
+    if (bip32_path_len > MAX_BIP32_PATH_STEPS ||
+        message_length >= (1LL << 32)) {
         SEND_SW(dc, SW_INCORRECT_DATA);
         return;
     }
 
     char path_str[MAX_SERIALIZED_BIP32_PATH_LENGTH + 1] = "(Master key)";
     if (bip32_path_len > 0) {
-        bip32_path_format(bip32_path, bip32_path_len, path_str, sizeof(path_str));
+        bip32_path_format(bip32_path, bip32_path_len, path_str,
+                          sizeof(path_str));
     }
 
     cx_sha256_t msg_hash_context;    // used to compute sha256(message)
-    cx_sha256_t bsm_digest_context;  // used to compute the Bitcoin Message Signing digest
+    cx_sha256_t bsm_digest_context;  // used to compute the Bitcoin Message
+                                     // Signing digest
     cx_sha256_init(&msg_hash_context);
     cx_sha256_init(&bsm_digest_context);
 
-    crypto_hash_update(&bsm_digest_context.header, BSM_SIGN_MAGIC, sizeof(BSM_SIGN_MAGIC));
+    crypto_hash_update(&bsm_digest_context.header, BSM_SIGN_MAGIC,
+                       sizeof(BSM_SIGN_MAGIC));
     crypto_hash_update_varint(&bsm_digest_context.header, message_length);
 
     size_t n_chunks = (message_length + 63) / 64;
     for (unsigned int i = 0; i < n_chunks; i++) {
         uint8_t message_chunk[64];
-        int chunk_len = call_get_merkle_leaf_element(dc,
-                                                     message_merkle_root,
-                                                     n_chunks,
-                                                     i,
-                                                     message_chunk,
-                                                     sizeof(message_chunk));
+        int chunk_len =
+            call_get_merkle_leaf_element(dc, message_merkle_root, n_chunks, i,
+                                         message_chunk, sizeof(message_chunk));
 
         if (chunk_len < 0 || (chunk_len != 64 && i != n_chunks - 1)) {
             SEND_SW(dc, SW_BAD_STATE);  // should never happen
@@ -90,7 +90,8 @@ void handler_sign_message(dispatcher_context_t *dc, uint8_t protocol_version) {
         }
 
         crypto_hash_update(&msg_hash_context.header, message_chunk, chunk_len);
-        crypto_hash_update(&bsm_digest_context.header, message_chunk, chunk_len);
+        crypto_hash_update(&bsm_digest_context.header, message_chunk,
+                           chunk_len);
     }
 
     uint8_t message_hash[32];
@@ -114,12 +115,8 @@ void handler_sign_message(dispatcher_context_t *dc, uint8_t protocol_version) {
     uint8_t sig[MAX_DER_SIG_LEN];
 
     uint32_t info;
-    int sig_len = crypto_ecdsa_sign_sha256_hash_with_key(bip32_path,
-                                                         bip32_path_len,
-                                                         bsm_digest,
-                                                         NULL,
-                                                         sig,
-                                                         &info);
+    int sig_len = crypto_ecdsa_sign_sha256_hash_with_key(
+        bip32_path, bip32_path_len, bsm_digest, NULL, sig, &info);
     if (sig_len < 0) {
         // unexpected error when signing
         SEND_SW(dc, SW_BAD_STATE);
@@ -128,7 +125,8 @@ void handler_sign_message(dispatcher_context_t *dc, uint8_t protocol_version) {
     }
 
     {
-        // convert signature to the standard Bitcoin format, always 65 bytes long
+        // convert signature to the standard Bitcoin format, always 65 bytes
+        // long
 
         uint8_t result[65];
         memset(result, 0, sizeof(result));
@@ -143,9 +141,9 @@ void handler_sign_message(dispatcher_context_t *dc, uint8_t protocol_version) {
             return;
         }
 
-        // Write s, r, and the first byte in reverse order, as the two loops will underflow by 1
-        // byte (that needs to be discarded) when s_length and r_length (respectively) are equal
-        // to 33.
+        // Write s, r, and the first byte in reverse order, as the two loops
+        // will underflow by 1 byte (that needs to be discarded) when s_length
+        // and r_length (respectively) are equal to 33.
         for (int i = s_length - 1; i >= 0; --i) {
             result[1 + 32 + 32 - s_length + i] = sig[4 + r_length + 2 + i];
         }

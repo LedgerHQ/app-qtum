@@ -17,15 +17,15 @@
 
 #include <stdint.h>
 
-#include "kernel/dispatcher.h"
-#include "kernel/sw.h"
 #include "../commands.h"
 #include "../crypto.h"
-
 #include "handlers.h"
+#include "kernel/dispatcher.h"
+#include "kernel/sw.h"
 
-void handler_get_master_fingerprint(dispatcher_context_t *dc, uint8_t protocol_version) {
-    (void) protocol_version;
+void handler_get_master_fingerprint(dispatcher_context_t* dc,
+                                    uint8_t protocol_version) {
+    (void)protocol_version;
 
     // Device must be unlocked
     if (os_global_pin_is_validated() != BOLOS_UX_OK) {
@@ -36,13 +36,16 @@ void handler_get_master_fingerprint(dispatcher_context_t *dc, uint8_t protocol_v
     uint8_t master_pubkey[33];
     bip32_path_t path;
     crypto_get_master_fingerprint_path(&path);
-    if (!crypto_get_compressed_pubkey_at_path(path.path, path.length, master_pubkey, NULL)) {
+    if (!crypto_get_compressed_pubkey_at_path(path.path, path.length,
+                                              master_pubkey, NULL)) {
         SEND_SW(dc, SW_BAD_STATE);  // should never happen
         return;
     }
 
     uint8_t master_fingerprint_be[4];
-    write_u32_be(master_fingerprint_be, 0, crypto_get_key_fingerprint(master_pubkey));
+    write_u32_be(master_fingerprint_be, 0,
+                 crypto_get_key_fingerprint(master_pubkey));
 
-    SEND_RESPONSE(dc, master_fingerprint_be, sizeof(master_fingerprint_be), SW_OK);
+    SEND_RESPONSE(dc, master_fingerprint_be, sizeof(master_fingerprint_be),
+                  SW_OK);
 }

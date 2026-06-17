@@ -1,21 +1,19 @@
-#include <string.h>
-
 #include "get_merkle_leaf_hash.h"
 
+#include <string.h>
+
 #include "../../common/buffer.h"
-#include "../../common/write.h"
 #include "../../common/merkle.h"
 #include "../../common/varint.h"
+#include "../../common/write.h"
 #include "../../kernel/sw.h"
 #include "../client_commands.h"
-
 #include "debug-helpers/debug.h"
 
 // Reads the inputs and sends the GET_MERKLE_LEAF_PROOF request.
-int call_get_merkle_leaf_hash(dispatcher_context_t *dc,
+int call_get_merkle_leaf_hash(dispatcher_context_t* dc,
                               const uint8_t merkle_root[static 32],
-                              uint32_t tree_size,
-                              uint32_t leaf_index,
+                              uint32_t tree_size, uint32_t leaf_index,
                               uint8_t out[static 32]) {
     PRINT_STACK_POINTER();
 
@@ -57,7 +55,7 @@ int call_get_merkle_leaf_hash(dispatcher_context_t *dc,
             return -1;
         }
 
-        if (!buffer_can_read(&dc->read_buffer, 32 * (size_t) n_proof_elements)) {
+        if (!buffer_can_read(&dc->read_buffer, 32 * (size_t)n_proof_elements)) {
             return -1;
         }
 
@@ -70,11 +68,14 @@ int call_get_merkle_leaf_hash(dispatcher_context_t *dc,
         while (true) {
             int end_step = cur_step + n_proof_elements;
             for (; cur_step < end_step; cur_step++) {
-                // we use the memory in the buffer directly, to avoid copying the hash unnecessarily
-                const uint8_t *sibling_hash = dc->read_buffer.ptr + dc->read_buffer.offset;
+                // we use the memory in the buffer directly, to avoid copying
+                // the hash unnecessarily
+                const uint8_t* sibling_hash =
+                    dc->read_buffer.ptr + dc->read_buffer.offset;
 
                 int i = proof_size - cur_step - 1;
-                int direction = merkle_get_ith_direction(tree_size, leaf_index, i);
+                int direction =
+                    merkle_get_ith_direction(tree_size, leaf_index, i);
 
                 if (direction == 0) {
                     merkle_combine_hashes(cur_hash, sibling_hash, cur_hash);
@@ -84,7 +85,8 @@ int call_get_merkle_leaf_hash(dispatcher_context_t *dc,
                     return -1;  // unexpected, proof too long?
                 }
 
-                buffer_seek_cur(&dc->read_buffer, 32);  // consume the bytes of the sibling hash
+                buffer_seek_cur(&dc->read_buffer,
+                                32);  // consume the bytes of the sibling hash
             }
 
             if (cur_step == proof_size) {
@@ -92,7 +94,8 @@ int call_get_merkle_leaf_hash(dispatcher_context_t *dc,
             }
 
             uint8_t req_more[] = {CCMD_GET_MORE_ELEMENTS};
-            SET_RESPONSE(dc, req_more, sizeof(req_more), SW_INTERRUPTED_EXECUTION);
+            SET_RESPONSE(dc, req_more, sizeof(req_more),
+                         SW_INTERRUPTED_EXECUTION);
             if (dc->process_interruption(dc) < 0) {
                 return -1;
             }
@@ -101,7 +104,8 @@ int call_get_merkle_leaf_hash(dispatcher_context_t *dc,
             uint8_t elements_len;
             if (!buffer_read_u8(&dc->read_buffer, &n_proof_elements) ||
                 !buffer_read_u8(&dc->read_buffer, &elements_len) ||
-                !buffer_can_read(&dc->read_buffer, (size_t) n_proof_elements * elements_len)) {
+                !buffer_can_read(&dc->read_buffer,
+                                 (size_t)n_proof_elements * elements_len)) {
                 return -1;
             }
 

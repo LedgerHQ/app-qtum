@@ -1,32 +1,33 @@
-#include <stdarg.h>
-#include <stddef.h>
+// clang-format off
+// cmocka.h must be included last: it relies on types from the headers above
+// (size_t, jmp_buf, va_list). Do not let clang-format sort these.
 #include <setjmp.h>
-#include <stdint.h>
+#include <stdarg.h>
 #include <stdbool.h>
-
+#include <stddef.h>
+#include <stdint.h>
 #include <cmocka.h>
+// clang-format on
 
 #include "common/bip32.h"
 
 #define H 0x80000000u
 
-static void test_bip32_format(void **state) {
-    (void) state;
+static void test_bip32_format(void** state) {
+    (void)state;
 
     char output[30];
     bool b = false;
 
-    b = bip32_path_format((const uint32_t[5]){0x8000002C, 0x80000000, 0x80000000, 0, 0},
-                          5,
-                          output,
-                          sizeof(output));
+    b = bip32_path_format(
+        (const uint32_t[5]){0x8000002C, 0x80000000, 0x80000000, 0, 0}, 5,
+        output, sizeof(output));
     assert_true(b);
     assert_string_equal(output, "44'/0'/0'/0/0");
 
-    b = bip32_path_format((const uint32_t[5]){0x8000002C, 0x80000001, 0x80000000, 0, 0},
-                          5,
-                          output,
-                          sizeof(output));
+    b = bip32_path_format(
+        (const uint32_t[5]){0x8000002C, 0x80000001, 0x80000000, 0, 0}, 5,
+        output, sizeof(output));
     assert_true(b);
     assert_string_equal(output, "44'/1'/0'/0/0");
 
@@ -36,23 +37,22 @@ static void test_bip32_format(void **state) {
     assert_string_equal(output, "");
 }
 
-static void test_bad_bip32_format(void **state) {
-    (void) state;
+static void test_bad_bip32_format(void** state) {
+    (void)state;
 
     char output[30];
     bool b = true;
 
     // More than MAX_BIP32_PATH_STEPS (=10)
     b = bip32_path_format(
-        (const uint32_t[11]){0x8000002C, 0x80000000, 0x80000000, 0, 0, 0, 0, 0, 0, 0, 0},
-        11,
-        output,
-        sizeof(output));
+        (const uint32_t[11]){0x8000002C, 0x80000000, 0x80000000, 0, 0, 0, 0, 0,
+                             0, 0, 0},
+        11, output, sizeof(output));
     assert_false(b);
 }
 
-static void test_bip32_read(void **state) {
-    (void) state;
+static void test_bip32_read(void** state) {
+    (void)state;
 
     // clang-format off
     uint8_t input[20] = {

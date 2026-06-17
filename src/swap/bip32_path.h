@@ -10,6 +10,6 @@ typedef struct bip32_path {
     unsigned int path[MAX_BIP32_PATH];
 } bip32_path_t;
 
-bool parse_serialized_path(bip32_path_t* path,
-                           unsigned char* serialized_path,
+bool parse_serialized_path(bip32_path_t *path,
+                           unsigned char *serialized_path,
                            unsigned char serialized_path_length);

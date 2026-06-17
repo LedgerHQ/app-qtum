@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>  // uint*_t
+
 /*
  * Due to lack of available stack on NanoS, we make use of a 1K RAM region that is shared between
  * applications and bolos, and used as temporary memory for cryptographic computations.
