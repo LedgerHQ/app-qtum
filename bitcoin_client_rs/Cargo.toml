@@ -4,7 +4,7 @@ version = "0.2.0"
 authors = ["Edouard Paris <m@edouard.paris>"]
 edition = "2018"
 description = "Ledger Bitcoin application client"
-repository = "https://github.com/LedgerHQ/app-bitcoin-new"
+repository = "https://github.com/LedgerHQ/app-bitcoin"
 license = "Apache-2.0"
 documentation = "https://docs.rs/ledger_bitcoin_client/"
 
