@@ -72,7 +72,7 @@ function containsA(descriptorTemplate: string): boolean {
 
 /**
  * This class encapsulates the APDU protocol documented at
- * https://github.com/LedgerHQ/app-bitcoin-new/blob/master/doc/bitcoin.md
+ * https://github.com/LedgerHQ/app-bitcoin/blob/master/doc/bitcoin.md
  */
 export class AppClient {
   readonly transport: Transport;
