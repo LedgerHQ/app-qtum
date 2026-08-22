@@ -33,7 +33,7 @@ APP_LOAD_PARAMS += --path_slip21 "LEDGER-Wallet policy"
 # Application version
 APPVERSION_M = 3
 APPVERSION_N = 0
-APPVERSION_P = 3
+APPVERSION_P = 4
 APPVERSION   = "$(APPVERSION_M).$(APPVERSION_N).$(APPVERSION_P)"
 
 # Setting to allow building variant applications
@@ -139,9 +139,6 @@ ifeq ($(TARGET_NAME),TARGET_NANOS)
     # enables optimizations using the shared 1K CXRAM region
     DEFINES   += USE_CXRAM_SECTION
 endif
-
-# debugging helper functions and macros
-CFLAGS    += -include debug-helpers/debug.h
 
 # DEFINES   += HAVE_PRINT_STACK_POINTER
 
